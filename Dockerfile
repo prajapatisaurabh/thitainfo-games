@@ -12,7 +12,7 @@ RUN apk add --no-cache libc6-compat
 # Copy package files
 COPY package.json yarn.lock* package-lock.json* ./
 
-# Install all dependencies (including devDependencies for build)
+# Install all dependencies
 RUN npm ci --legacy-peer-deps || yarn install --frozen-lockfile
 
 # Copy source code
@@ -37,12 +37,20 @@ ENV NEXT_TELEMETRY_DISABLED=1
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 
-# Copy standalone build from Next.js
-COPY --from=builder /app/.next/standalone ./
-COPY --from=builder /app/.next/static ./.next/static
-COPY --from=builder /app/public ./public
+# Copy package files and install production dependencies
+COPY --from=builder /app/package.json ./
+COPY --from=builder /app/yarn.lock* ./
+COPY --from=builder /app/package-lock.json* ./
 
-# Copy custom server and socket files (IMPORTANT for Socket.IO)
+# Install production dependencies only
+RUN npm ci --omit=dev --legacy-peer-deps || yarn install --production --frozen-lockfile
+
+# Copy built application
+COPY --from=builder /app/.next ./.next
+COPY --from=builder /app/public ./public
+COPY --from=builder /app/next.config.js ./
+
+# Copy custom server and socket files
 COPY --from=builder /app/server.js ./server.js
 COPY --from=builder /app/lib ./lib
 
