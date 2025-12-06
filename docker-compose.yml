@@ -1,13 +1,61 @@
+# ===========================================
+# PRODUCTION DOCKER COMPOSE
+# ===========================================
+# Usage: docker-compose up --build
+# ===========================================
+
 version: "3.9"
 
 services:
   app:
-    build: .
-    container_name: next_app
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: thitainfo_games_prod
     restart: always
     ports:
       - "3000:3000"
     environment:
       NODE_ENV: production
       PORT: 3000
-      HOSTNAME: 0.0.0.0
+      HOSTNAME: "0.0.0.0"
+      # MongoDB connection (use external MongoDB or docker network)
+      MONGO_URL: ${MONGO_URL:-mongodb://mongo:27017}
+      DB_NAME: ${DB_NAME:-thitainfo_games}
+      # Socket.IO client URL (should match the server URL)
+      NEXT_PUBLIC_SOCKET_URL: ${NEXT_PUBLIC_SOCKET_URL:-}
+      # CORS origins (comma-separated)
+      CORS_ORIGINS: ${CORS_ORIGINS:-*}
+    depends_on:
+      - mongo
+    networks:
+      - app_network
+    # Health check for container
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  mongo:
+    image: mongo:7.0
+    container_name: thitainfo_mongo_prod
+    restart: always
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    networks:
+      - app_network
+    # Uncomment below for authentication
+    # environment:
+    #   MONGO_INITDB_ROOT_USERNAME: ${MONGO_USER:-admin}
+    #   MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD:-password}
+
+networks:
+  app_network:
+    driver: bridge
+
+volumes:
+  mongo_data:

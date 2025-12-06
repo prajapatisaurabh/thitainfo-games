@@ -33,11 +33,11 @@ ThitaInfo Games is a modern, real-time multiplayer typing game platform built wi
 
 ### 🏁 Game Modes
 
-| Mode | Description |
-|------|-------------|
-| **Single Player** | Practice solo and improve your typing speed at your own pace |
-| **Race Mode** | Create or join rooms to race against other players in real-time |
-| **Challenge Mode** | Create shareable challenge links and compete asynchronously |
+| Mode               | Description                                                     |
+| ------------------ | --------------------------------------------------------------- |
+| **Single Player**  | Practice solo and improve your typing speed at your own pace    |
+| **Race Mode**      | Create or join rooms to race against other players in real-time |
+| **Challenge Mode** | Create shareable challenge links and compete asynchronously     |
 
 ### 🎨 User Experience
 
@@ -51,40 +51,40 @@ ThitaInfo Games is a modern, real-time multiplayer typing game platform built wi
 
 ### Frontend
 
-| Technology | Purpose |
-|------------|---------|
-| **Next.js 14** | React framework with App Router for server-side rendering |
-| **React 18** | UI component library with hooks |
-| **Tailwind CSS 3.4** | Utility-first CSS framework |
-| **Radix UI** | Unstyled, accessible UI primitives |
-| **Lucide React** | Beautiful, customizable icons |
-| **Socket.io Client** | Real-time bidirectional communication |
+| Technology           | Purpose                                                   |
+| -------------------- | --------------------------------------------------------- |
+| **Next.js 14**       | React framework with App Router for server-side rendering |
+| **React 18**         | UI component library with hooks                           |
+| **Tailwind CSS 3.4** | Utility-first CSS framework                               |
+| **Radix UI**         | Unstyled, accessible UI primitives                        |
+| **Lucide React**     | Beautiful, customizable icons                             |
+| **Socket.io Client** | Real-time bidirectional communication                     |
 
 ### Backend
 
-| Technology | Purpose |
-|------------|---------|
-| **Node.js** | JavaScript runtime environment |
-| **Next.js API Routes** | Serverless API endpoints |
-| **Socket.io Server** | WebSocket server for real-time features |
-| **MongoDB** | NoSQL database for data persistence |
+| Technology             | Purpose                                 |
+| ---------------------- | --------------------------------------- |
+| **Node.js**            | JavaScript runtime environment          |
+| **Next.js API Routes** | Serverless API endpoints                |
+| **Socket.io Server**   | WebSocket server for real-time features |
+| **MongoDB**            | NoSQL database for data persistence     |
 
 ### Styling & UI
 
-| Technology | Purpose |
-|------------|---------|
-| **Tailwind CSS** | Utility-first styling |
-| **tailwindcss-animate** | Animation utilities |
-| **class-variance-authority** | Type-safe component variants |
-| **clsx** | Conditional className utility |
-| **tailwind-merge** | Merge Tailwind classes intelligently |
+| Technology                   | Purpose                              |
+| ---------------------------- | ------------------------------------ |
+| **Tailwind CSS**             | Utility-first styling                |
+| **tailwindcss-animate**      | Animation utilities                  |
+| **class-variance-authority** | Type-safe component variants         |
+| **clsx**                     | Conditional className utility        |
+| **tailwind-merge**           | Merge Tailwind classes intelligently |
 
 ### DevOps & Deployment
 
-| Technology | Purpose |
-|------------|---------|
-| **Docker** | Containerization for consistent deployments |
-| **Node.js 18 Alpine** | Lightweight production image |
+| Technology            | Purpose                                     |
+| --------------------- | ------------------------------------------- |
+| **Docker**            | Containerization for consistent deployments |
+| **Node.js 18 Alpine** | Lightweight production image                |
 
 ## 📁 Project Structure
 
@@ -166,12 +166,14 @@ HOSTNAME=localhost
 ### Installation
 
 1. **Clone the repository**
+
    ```bash
    git clone https://github.com/your-username/thitainfo-games.git
    cd thitainfo-games
    ```
 
 2. **Install dependencies**
+
    ```bash
    yarn install
    # or
@@ -179,6 +181,7 @@ HOSTNAME=localhost
    ```
 
 3. **Start development server**
+
    ```bash
    yarn dev
    # or
@@ -186,12 +189,13 @@ HOSTNAME=localhost
    ```
 
 4. **Open your browser**
-   
+
    Navigate to [http://localhost:3000](http://localhost:3000)
 
 ### Docker Deployment
 
 1. **Build the Docker image**
+
    ```bash
    docker build -t thitainfo-games .
    ```
@@ -240,12 +244,12 @@ Create shareable challenges:
 
 ## 📜 Available Scripts
 
-| Script | Description |
-|--------|-------------|
-| `yarn dev` | Start development server with hot reload |
-| `yarn build` | Build for production |
-| `yarn start` | Start production server |
-| `yarn lint` | Run ESLint for code quality |
+| Script       | Description                              |
+| ------------ | ---------------------------------------- |
+| `yarn dev`   | Start development server with hot reload |
+| `yarn build` | Build for production                     |
+| `yarn start` | Start production server                  |
+| `yarn lint`  | Run ESLint for code quality              |
 
 ## 🤝 Contributing
 
@@ -254,42 +258,47 @@ We welcome contributions from the community! Here's how you can help:
 ### Getting Started
 
 1. **Fork the repository**
-   
+
    Click the "Fork" button at the top right of this page.
 
 2. **Clone your fork**
+
    ```bash
    git clone https://github.com/your-username/thitainfo-games.git
    cd thitainfo-games
    ```
 
 3. **Create a branch**
+
    ```bash
    git checkout -b feature/your-feature-name
    ```
 
 4. **Make your changes**
-   
+
    Write clean, documented code following the existing style.
 
 5. **Test your changes**
+
    ```bash
    yarn dev
    ```
 
 6. **Commit your changes**
+
    ```bash
    git add .
    git commit -m "feat: add your feature description"
    ```
 
 7. **Push to your fork**
+
    ```bash
    git push origin feature/your-feature-name
    ```
 
 8. **Create a Pull Request**
-   
+
    Go to the original repository and click "New Pull Request".
 
 ### Contribution Guidelines
@@ -312,39 +321,39 @@ We welcome contributions from the community! Here's how you can help:
 
 ## 📊 API Endpoints
 
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/api/typer/create-room` | POST | Create a new multiplayer room |
-| `/api/typer/join-room` | POST | Join an existing room |
-| `/api/typer/room/[roomId]` | GET | Get room data |
-| `/api/typer/create-challenge` | POST | Create a new challenge |
-| `/api/typer/accept-challenge` | POST | Accept a challenge |
-| `/api/typer/challenge/[challengeId]` | GET | Get challenge data |
-| `/api/typer/save-result` | POST | Save single player result |
-| `/api/typer/save-race-result` | POST | Save race results |
-| `/api/typer/get-history` | GET | Get user typing history |
+| Endpoint                             | Method | Description                   |
+| ------------------------------------ | ------ | ----------------------------- |
+| `/api/typer/create-room`             | POST   | Create a new multiplayer room |
+| `/api/typer/join-room`               | POST   | Join an existing room         |
+| `/api/typer/room/[roomId]`           | GET    | Get room data                 |
+| `/api/typer/create-challenge`        | POST   | Create a new challenge        |
+| `/api/typer/accept-challenge`        | POST   | Accept a challenge            |
+| `/api/typer/challenge/[challengeId]` | GET    | Get challenge data            |
+| `/api/typer/save-result`             | POST   | Save single player result     |
+| `/api/typer/save-race-result`        | POST   | Save race results             |
+| `/api/typer/get-history`             | GET    | Get user typing history       |
 
 ## 🔌 Socket.io Events
 
 ### Client → Server
 
-| Event | Payload | Description |
-|-------|---------|-------------|
-| `join-room` | `{ roomId, username }` | Join a multiplayer room |
-| `leave-room` | `{ roomId }` | Leave a room |
-| `player-progress` | `{ roomId, progress, wpm, accuracy, errors, finished }` | Update player progress |
-| `start-race` | `{ roomId }` | Start the race (host only) |
-| `accept-challenge` | `{ challengeId, username }` | Accept a challenge |
+| Event              | Payload                                                 | Description                |
+| ------------------ | ------------------------------------------------------- | -------------------------- |
+| `join-room`        | `{ roomId, username }`                                  | Join a multiplayer room    |
+| `leave-room`       | `{ roomId }`                                            | Leave a room               |
+| `player-progress`  | `{ roomId, progress, wpm, accuracy, errors, finished }` | Update player progress     |
+| `start-race`       | `{ roomId }`                                            | Start the race (host only) |
+| `accept-challenge` | `{ challengeId, username }`                             | Accept a challenge         |
 
 ### Server → Client
 
-| Event | Payload | Description |
-|-------|---------|-------------|
-| `room-update` | `Room object` | Room data updated |
-| `race-countdown` | `{ countdown }` | Countdown tick |
-| `race-started` | `{ startedAt }` | Race has started |
+| Event                | Payload                   | Description            |
+| -------------------- | ------------------------- | ---------------------- |
+| `room-update`        | `Room object`             | Room data updated      |
+| `race-countdown`     | `{ countdown }`           | Countdown tick         |
+| `race-started`       | `{ startedAt }`           | Race has started       |
 | `challenge-accepted` | `{ challengeId, roomId }` | Challenge was accepted |
-| `error` | `{ message }` | Error occurred |
+| `error`              | `{ message }`             | Error occurred         |
 
 ## 📄 License
 
@@ -369,3 +378,34 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 </div>
 
+# Build and run
+
+docker-compose up --build
+
+# Run in background
+
+docker-compose up -d --build
+
+# View logs
+
+docker-compose logs -f app
+
+# Stop
+
+docker-compose down
+
+# Build and run
+
+docker-compose -f docker-compose.local.yml up --build
+
+# Run in background
+
+docker-compose -f docker-compose.local.yml up -d --build
+
+# View logs
+
+docker-compose -f docker-compose.local.yml logs -f app
+
+# Stop
+
+docker-compose -f docker-compose.local.yml down

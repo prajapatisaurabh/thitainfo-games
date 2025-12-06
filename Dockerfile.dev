@@ -1,0 +1,29 @@
+# ===========================================
+# DEVELOPMENT DOCKERFILE
+# ===========================================
+FROM node:18-alpine
+
+WORKDIR /app
+
+# Install dependencies for native modules
+RUN apk add --no-cache libc6-compat
+
+# Copy package files
+COPY package.json yarn.lock* package-lock.json* ./
+
+# Install dependencies
+RUN npm install --legacy-peer-deps || yarn install
+
+# Copy source code
+COPY . .
+
+# Expose port
+EXPOSE 3000
+
+ENV PORT=3000
+ENV HOSTNAME="0.0.0.0"
+ENV NODE_ENV=development
+
+# Start development server
+CMD ["npm", "run", "dev"]
+
