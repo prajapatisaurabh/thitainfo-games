@@ -18,6 +18,9 @@ RUN npm ci --legacy-peer-deps || yarn install --frozen-lockfile
 # Copy source code
 COPY . .
 
+# Create public folder if it doesn't exist
+RUN mkdir -p public
+
 # Build the Next.js application
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN npm run build
