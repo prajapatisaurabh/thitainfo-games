@@ -2,9 +2,13 @@
 
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Trophy, Target, AlertCircle, Clock } from "lucide-react";
+import { Trophy, Target, AlertCircle, Clock, Zap, Timer } from "lucide-react";
 
-export function LiveLeaderboard({ players, currentPlayerId }) {
+export function LiveLeaderboard({
+  players,
+  currentPlayerId,
+  isRaceFinished = false,
+}) {
   // Sort players by: finished status → progress → wpm → accuracy
   const sortedPlayers = [...(players || [])].sort((a, b) => {
     if (a.finished && !b.finished) return -1;
@@ -75,24 +79,32 @@ export function LiveLeaderboard({ players, currentPlayerId }) {
                     )}
                   </div>
                 </div>
-                <div className="grid grid-cols-4 gap-2 text-sm">
+                <div
+                  className={`grid ${
+                    isRaceFinished
+                      ? "grid-cols-2 md:grid-cols-5"
+                      : "grid-cols-4"
+                  } gap-2 text-sm`}
+                >
+                  {!isRaceFinished && (
+                    <div className="flex items-center gap-1">
+                      <Target className="w-4 h-4 text-green-400" />
+                      <span className="text-white/70">Progress:</span>
+                      <span className="text-white font-bold">
+                        {Math.round(player.progress || 0)}%
+                      </span>
+                    </div>
+                  )}
                   <div className="flex items-center gap-1">
-                    <Target className="w-4 h-4 text-green-400" />
-                    <span className="text-white/70">Progress:</span>
-                    <span className="text-white font-bold">
-                      {Math.round(player.progress || 0)}%
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <Clock className="w-4 h-4 text-blue-400" />
+                    <Zap className="w-4 h-4 text-blue-400" />
                     <span className="text-white/70">WPM:</span>
-                    <span className="text-white font-bold">
+                    <span className="text-white font-bold text-lg">
                       {player.wpm || 0}
                     </span>
                   </div>
                   <div className="flex items-center gap-1">
                     <Trophy className="w-4 h-4 text-yellow-400" />
-                    <span className="text-white/70">Acc:</span>
+                    <span className="text-white/70">Accuracy:</span>
                     <span className="text-white font-bold">
                       {player.accuracy || 100}%
                     </span>
@@ -104,8 +116,20 @@ export function LiveLeaderboard({ players, currentPlayerId }) {
                       {player.errors || 0}
                     </span>
                   </div>
+                  {isRaceFinished && player.time && (
+                    <div className="flex items-center gap-1">
+                      <Timer className="w-4 h-4 text-cyan-400" />
+                      <span className="text-white/70">Time:</span>
+                      <span className="text-cyan-300 font-bold">
+                        {typeof player.time === "number"
+                          ? player.time.toFixed(1)
+                          : player.time}
+                        s
+                      </span>
+                    </div>
+                  )}
                 </div>
-                {!player.finished && (
+                {!player.finished && !isRaceFinished && (
                   <div className="mt-2">
                     <div className="w-full bg-gray-700/50 rounded-full h-2">
                       <div
@@ -117,6 +141,13 @@ export function LiveLeaderboard({ players, currentPlayerId }) {
                     </div>
                   </div>
                 )}
+                {isRaceFinished && !player.finished && (
+                  <div className="mt-2 text-center">
+                    <Badge className="bg-red-500/20 text-red-300 border-red-500/30">
+                      Did Not Finish
+                    </Badge>
+                  </div>
+                )}
               </div>
             );
           })}
@@ -125,4 +156,3 @@ export function LiveLeaderboard({ players, currentPlayerId }) {
     </Card>
   );
 }
-

@@ -7,7 +7,14 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Users, Copy, Check, Play, Loader2 } from "lucide-react";
 
-export function RoomLobby({ roomId, isHost, onStartRace, roomData, socket, autoJoined = false }) {
+export function RoomLobby({
+  roomId,
+  isHost,
+  onStartRace,
+  roomData,
+  socket,
+  autoJoined = false,
+}) {
   const [copied, setCopied] = useState(false);
   const [username, setUsername] = useState("");
   const [joined, setJoined] = useState(autoJoined);
@@ -195,4 +202,3 @@ export function RoomLobby({ roomId, isHost, onStartRace, roomData, socket, autoJ
     </Card>
   );
 }
-

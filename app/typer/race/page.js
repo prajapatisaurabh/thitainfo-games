@@ -29,7 +29,8 @@ function RacePageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { socket, isConnected } = useSocket();
-  const [roomId, setRoomId] = useState("");
+  const [roomId, setRoomId] = useState(""); // Active room ID (after joining)
+  const [roomCodeInput, setRoomCodeInput] = useState(""); // Input field value
   const [username, setUsername] = useState("");
   const [roomData, setRoomData] = useState(null);
   const [isHost, setIsHost] = useState(false);
@@ -40,15 +41,16 @@ function RacePageContent() {
   const [timeElapsed, setTimeElapsed] = useState(0);
   const [showResults, setShowResults] = useState(false);
   const [raceResults, setRaceResults] = useState(null);
+  const [maxPlayersInput, setMaxPlayersInput] = useState(10); // Configurable max players
   const inputRef = useRef(null);
   const timerRef = useRef(null);
   const progressIntervalRef = useRef(null);
 
-  // Check if joining via room code
+  // Check if joining via room code from URL
   useEffect(() => {
     const code = searchParams.get("code");
     if (code) {
-      setRoomId(code);
+      setRoomCodeInput(code);
     }
   }, [searchParams]);
 
@@ -79,6 +81,18 @@ function RacePageContent() {
     socket.on("race-finished", (data) => {
       // Race ended - show results to all players
       setShowResults(true);
+      setRaceStarted(false); // Stop the race
+      
+      // Clear all timers immediately
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+      if (progressIntervalRef.current) {
+        clearInterval(progressIntervalRef.current);
+        progressIntervalRef.current = null;
+      }
+      
       if (data.results) {
         setRaceResults({
           players: data.results.sort((a, b) => {
@@ -223,13 +237,14 @@ function RacePageContent() {
       const response = await fetch("/api/typer/create-room", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ hostId: socket.id, maxPlayers: 10 }),
+        body: JSON.stringify({ hostId: socket.id, maxPlayers: maxPlayersInput }),
       });
 
       const data = await response.json();
       if (data.success) {
         const newRoomId = data.data.roomId;
         setRoomId(newRoomId);
+        setRoomCodeInput(newRoomId);
         setIsHost(true);
         setAutoJoined(true);
         // Join room via socket - host automatically joins when creating
@@ -242,7 +257,7 @@ function RacePageContent() {
   };
 
   const handleJoinRoom = async () => {
-    if (!socket || !username.trim() || !roomId.trim()) {
+    if (!socket || !username.trim() || !roomCodeInput.trim()) {
       alert("Please enter username and room code");
       return;
     }
@@ -251,12 +266,13 @@ function RacePageContent() {
       const response = await fetch("/api/typer/join-room", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ roomId }),
+        body: JSON.stringify({ roomId: roomCodeInput }),
       });
 
       const data = await response.json();
       if (data.success) {
-        socket.emit("join-room", { roomId, username });
+        setRoomId(roomCodeInput); // Set actual roomId only after successful join validation
+        socket.emit("join-room", { roomId: roomCodeInput, username });
       } else {
         alert(data.message || "Error joining room");
       }
@@ -350,7 +366,7 @@ function RacePageContent() {
     );
   }
 
-  if (!roomId) {
+  if (!roomId || !roomData) {
     return (
       <div className="min-h-screen gradient-dark animate-gradient text-white">
         <Navbar />
@@ -367,21 +383,36 @@ function RacePageContent() {
           <div className="max-w-md mx-auto space-y-6">
             <Card className="bg-white/10 border-white/20 backdrop-blur-sm">
               <CardContent className="p-6">
-                <h2 className="text-xl font-bold mb-4 text-white">
-                  Enter Username
-                </h2>
-                <Input
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  placeholder="Your username"
-                  className="bg-gray-900/50 border-white/10 text-white mb-4"
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && username.trim()) {
-                      handleCreateRoom();
-                    }
-                  }}
-                />
-                <div className="space-y-3">
+                {/* Username Section */}
+                <div className="mb-6">
+                  <h2 className="text-xl font-bold mb-3 text-white">
+                    Your Details
+                  </h2>
+                  <label className="text-white/70 text-sm mb-2 block">Username</label>
+                  <Input
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    placeholder="Enter your username"
+                    className="bg-gray-900/50 border-white/10 text-white"
+                  />
+                </div>
+
+                {/* Create Room Section */}
+                <div className="mb-6 p-4 bg-blue-500/10 rounded-lg border border-blue-500/20">
+                  <h3 className="text-lg font-semibold mb-3 text-blue-300">Create New Room</h3>
+                  <div className="mb-3">
+                    <label className="text-white/70 text-sm mb-2 block">Max Players</label>
+                    <Input
+                      type="number"
+                      value={maxPlayersInput}
+                      onChange={(e) => setMaxPlayersInput(Math.max(2, Math.min(50, parseInt(e.target.value) || 2)))}
+                      placeholder="Max players (2-50)"
+                      min={2}
+                      max={50}
+                      className="bg-gray-900/50 border-white/10 text-white"
+                    />
+                    <p className="text-white/50 text-xs mt-1">Set how many players can join (2-50)</p>
+                  </div>
                   <Button
                     onClick={handleCreateRoom}
                     disabled={!username.trim()}
@@ -390,33 +421,40 @@ function RacePageContent() {
                     <Play className="w-4 h-4 mr-2" />
                     Create Room
                   </Button>
-                  <div className="text-center text-white/70">OR</div>
-                  <div>
+                </div>
+
+                <div className="text-center text-white/50 mb-6">— OR —</div>
+
+                {/* Join Room Section */}
+                <div className="p-4 bg-green-500/10 rounded-lg border border-green-500/20">
+                  <h3 className="text-lg font-semibold mb-3 text-green-300">Join Existing Room</h3>
+                  <div className="mb-3">
+                    <label className="text-white/70 text-sm mb-2 block">Room Code</label>
                     <Input
-                      value={roomId}
-                      onChange={(e) => setRoomId(e.target.value.toUpperCase())}
-                      placeholder="Enter room code"
-                      className="bg-gray-900/50 border-white/10 text-white mb-3"
+                      value={roomCodeInput}
+                      onChange={(e) => setRoomCodeInput(e.target.value.toUpperCase())}
+                      placeholder="Enter 6-digit room code"
+                      className="bg-gray-900/50 border-white/10 text-white"
                       maxLength={6}
                       onKeyDown={(e) => {
                         if (
                           e.key === "Enter" &&
                           username.trim() &&
-                          roomId.trim()
+                          roomCodeInput.trim()
                         ) {
                           handleJoinRoom();
                         }
                       }}
                     />
-                    <Button
-                      onClick={handleJoinRoom}
-                      disabled={!username.trim() || !roomId.trim()}
-                      className="w-full btn-cartoon bg-green-600 hover:bg-green-700 text-white border-0"
-                    >
-                      <Users className="w-4 h-4 mr-2" />
-                      Join Room
-                    </Button>
                   </div>
+                  <Button
+                    onClick={handleJoinRoom}
+                    disabled={!username.trim() || !roomCodeInput.trim()}
+                    className="w-full btn-cartoon bg-green-600 hover:bg-green-700 text-white border-0"
+                  >
+                    <Users className="w-4 h-4 mr-2" />
+                    Join Room
+                  </Button>
                 </div>
               </CardContent>
             </Card>
@@ -448,7 +486,8 @@ function RacePageContent() {
                       🏆 {raceResults.winner.username} 🏆
                     </p>
                     <p className="text-white/80 mt-1">
-                      {raceResults.winner.wpm} WPM • {raceResults.winner.accuracy}% accuracy
+                      {raceResults.winner.wpm} WPM •{" "}
+                      {raceResults.winner.accuracy}% accuracy
                     </p>
                   </div>
                 )}
@@ -518,7 +557,11 @@ function RacePageContent() {
                         </div>
                         {player.finished && player.time && (
                           <div className="text-sm text-green-400 font-medium">
-                            ⏱️ {typeof player.time === 'number' ? player.time.toFixed(1) : player.time}s
+                            ⏱️{" "}
+                            {typeof player.time === "number"
+                              ? player.time.toFixed(1)
+                              : player.time}
+                            s
                           </div>
                         )}
                       </div>
@@ -531,6 +574,7 @@ function RacePageContent() {
                 <Button
                   onClick={() => {
                     setRoomId("");
+                    setRoomCodeInput("");
                     setRoomData(null);
                     setRaceStarted(false);
                     setShowResults(false);
@@ -539,6 +583,16 @@ function RacePageContent() {
                     setTimeElapsed(0);
                     setAutoJoined(false);
                     setIsHost(false);
+                    setCountdown(null);
+                    // Clear timers
+                    if (timerRef.current) {
+                      clearInterval(timerRef.current);
+                      timerRef.current = null;
+                    }
+                    if (progressIntervalRef.current) {
+                      clearInterval(progressIntervalRef.current);
+                      progressIntervalRef.current = null;
+                    }
                   }}
                   className="flex-1 btn-cartoon bg-blue-600 hover:bg-blue-700 text-white border-0"
                 >
@@ -588,6 +642,7 @@ function RacePageContent() {
               <LiveLeaderboard
                 players={roomData.players}
                 currentPlayerId={socket?.id}
+                isRaceFinished={false}
               />
             )}
           </div>
@@ -597,6 +652,7 @@ function RacePageContent() {
               <LiveLeaderboard
                 players={roomData?.players || []}
                 currentPlayerId={socket?.id}
+                isRaceFinished={showResults}
               />
               <Card className="bg-white/10 border-white/20 backdrop-blur-sm">
                 <CardContent className="p-6">
@@ -635,7 +691,9 @@ function RacePageContent() {
                 <div className="mb-4">
                   <div className="flex justify-between items-center mb-2">
                     <span className="text-white/70 text-sm">Your Progress</span>
-                    <span className="text-white font-bold">{Math.round(getProgressPercentage())}%</span>
+                    <span className="text-white font-bold">
+                      {Math.round(getProgressPercentage())}%
+                    </span>
                   </div>
                   <div className="w-full bg-gray-700/50 rounded-full h-3 overflow-hidden">
                     <div
@@ -652,9 +710,13 @@ function RacePageContent() {
                   <div className="bg-gray-900/50 p-6 rounded-lg border border-white/10 min-h-[150px]">
                     <p className="text-lg leading-relaxed font-mono">
                       {(roomData?.text || "").split("").map((char, index) => (
-                        <span 
-                          key={index} 
-                          className={`${getCharacterClass(index)} ${index === userInput.length ? 'border-l-2 border-yellow-400 animate-pulse' : ''}`}
+                        <span
+                          key={index}
+                          className={`${getCharacterClass(index)} ${
+                            index === userInput.length
+                              ? "border-l-2 border-yellow-400 animate-pulse"
+                              : ""
+                          }`}
                         >
                           {char}
                         </span>
@@ -704,4 +766,3 @@ export default function RacePage() {
     </Suspense>
   );
 }
-
