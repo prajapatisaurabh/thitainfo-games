@@ -23,6 +23,7 @@ import { useSocket } from "@/lib/socket/client";
 import { RoomLobby } from "@/components/typer/RoomLobby";
 import { LiveLeaderboard } from "@/components/typer/LiveLeaderboard";
 import { RaceCountdown } from "@/components/typer/RaceCountdown";
+import { Confetti } from "@/components/typer/Confetti";
 
 function RacePageContent() {
   const router = useRouter();
@@ -32,6 +33,7 @@ function RacePageContent() {
   const [username, setUsername] = useState("");
   const [roomData, setRoomData] = useState(null);
   const [isHost, setIsHost] = useState(false);
+  const [autoJoined, setAutoJoined] = useState(false);
   const [raceStarted, setRaceStarted] = useState(false);
   const [countdown, setCountdown] = useState(null);
   const [userInput, setUserInput] = useState("");
@@ -74,6 +76,24 @@ function RacePageContent() {
       }
     });
 
+    socket.on("race-finished", (data) => {
+      // Race ended - show results to all players
+      setShowResults(true);
+      if (data.results) {
+        setRaceResults({
+          players: data.results.sort((a, b) => {
+            if (a.finished && !b.finished) return -1;
+            if (!a.finished && b.finished) return 1;
+            if (a.finishedAt && b.finishedAt) {
+              return new Date(a.finishedAt) - new Date(b.finishedAt);
+            }
+            return (b.wpm || 0) - (a.wpm || 0);
+          }),
+          winner: data.winner,
+        });
+      }
+    });
+
     socket.on("error", (error) => {
       alert(error.message || "An error occurred");
     });
@@ -93,6 +113,7 @@ function RacePageContent() {
       socket.off("room-update");
       socket.off("race-countdown");
       socket.off("race-started");
+      socket.off("race-finished");
       socket.off("error");
       socket.off("disconnect");
       socket.off("connect");
@@ -202,15 +223,17 @@ function RacePageContent() {
       const response = await fetch("/api/typer/create-room", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ hostId: socket.id }),
+        body: JSON.stringify({ hostId: socket.id, maxPlayers: 10 }),
       });
 
       const data = await response.json();
       if (data.success) {
-        setRoomId(data.data.roomId);
+        const newRoomId = data.data.roomId;
+        setRoomId(newRoomId);
         setIsHost(true);
-        // Join room via socket
-        socket.emit("join-room", { roomId: data.data.roomId, username });
+        setAutoJoined(true);
+        // Join room via socket - host automatically joins when creating
+        socket.emit("join-room", { roomId: newRoomId, username });
       }
     } catch (error) {
       console.error("Error creating room:", error);
@@ -250,7 +273,8 @@ function RacePageContent() {
   };
 
   const handleRaceFinish = async () => {
-    setShowResults(true);
+    // The server will broadcast race-finished event to all players
+    // This is called when the current player finishes typing
     const text = roomData?.text || "";
     const timeInMinutes = timeElapsed / 60;
     const wordsTyped = text.trim().split(/\s+/).length;
@@ -276,41 +300,34 @@ function RacePageContent() {
       }
     }
 
-    // Wait a bit for all players to finish, then get final results
-    setTimeout(async () => {
-      if (roomData?.players) {
-        const finalResults = roomData.players.map((p) => ({
-          ...p,
-          time: p.finished ? p.time || timeElapsed : null,
-        }));
-
-        try {
-          await fetch("/api/typer/save-race-result", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              roomId,
-              players: finalResults,
-            }),
-          });
-        } catch (error) {
-          console.error("Error saving race result:", error);
-        }
-
-        setRaceResults({
-          players: finalResults.sort((a, b) => {
-            if (a.finished && !b.finished) return -1;
-            if (!a.finished && b.finished) return 1;
-            return (a.time || Infinity) - (b.time || Infinity);
-          }),
-        });
-      }
-    }, 2000);
+    // Emit player finished event to server
+    if (socket && roomId) {
+      socket.emit("player-finished", {
+        roomId,
+        wpm: finalWpm,
+        accuracy,
+        errors,
+        time: timeElapsed,
+      });
+    }
   };
 
   const handleInputChange = (e) => {
     if (!raceStarted || countdown !== null) return;
     setUserInput(e.target.value);
+  };
+
+  // Prevent paste to avoid cheating
+  const handlePaste = (e) => {
+    e.preventDefault();
+    alert("Pasting is not allowed! Type the text yourself.");
+  };
+
+  // Calculate progress percentage
+  const getProgressPercentage = () => {
+    const text = roomData?.text || "";
+    if (text.length === 0) return 0;
+    return Math.min((userInput.length / text.length) * 100, 100);
   };
 
   const getCharacterClass = (index) => {
@@ -411,29 +428,57 @@ function RacePageContent() {
   }
 
   if (showResults && raceResults) {
+    const isWinner = raceResults.winner?.socketId === socket?.id;
     return (
       <div className="min-h-screen gradient-dark animate-gradient text-white">
+        <Confetti active={isWinner} />
         <Navbar />
         <div className="container mx-auto px-4 py-24">
-          <Card className="bg-gradient-to-br from-blue-600/20 to-purple-600/20 border-white/30 backdrop-blur-sm">
+          <Card className="bg-gradient-to-br from-blue-600/20 to-purple-600/20 border-white/30 backdrop-blur-sm max-w-3xl mx-auto">
             <CardContent className="p-8">
-              <Trophy className="w-16 h-16 text-yellow-400 mx-auto mb-4" />
-              <h2 className="text-3xl font-bold mb-6 text-white text-center">
-                Race Complete!
-              </h2>
-              <div className="space-y-4">
+              <div className="text-center mb-8">
+                <Trophy className="w-20 h-20 text-yellow-400 mx-auto mb-4" />
+                <h2 className="text-4xl font-bold mb-2 text-white">
+                  Race Complete!
+                </h2>
+                {raceResults.winner && (
+                  <div className="mt-4">
+                    <p className="text-white/70 text-lg">Winner</p>
+                    <p className="text-3xl font-bold text-yellow-400">
+                      🏆 {raceResults.winner.username} 🏆
+                    </p>
+                    <p className="text-white/80 mt-1">
+                      {raceResults.winner.wpm} WPM • {raceResults.winner.accuracy}% accuracy
+                    </p>
+                  </div>
+                )}
+                {isWinner && (
+                  <div className="mt-4 p-4 bg-yellow-500/20 rounded-lg border-2 border-yellow-500">
+                    <p className="text-2xl font-bold text-yellow-400">
+                      🎉 Congratulations! You Won! 🎉
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              <h3 className="text-xl font-bold mb-4 text-white">Leaderboard</h3>
+              <div className="space-y-3">
                 {raceResults.players.map((player, index) => (
                   <div
                     key={index}
-                    className={`p-4 rounded-lg ${
+                    className={`p-4 rounded-lg transition-all ${
                       index === 0
-                        ? "bg-yellow-500/20 border-2 border-yellow-500"
+                        ? "bg-gradient-to-r from-yellow-500/30 to-orange-500/30 border-2 border-yellow-500"
+                        : index === 1
+                        ? "bg-gradient-to-r from-gray-400/20 to-gray-300/20 border border-gray-400"
+                        : index === 2
+                        ? "bg-gradient-to-r from-orange-700/20 to-orange-600/20 border border-orange-600"
                         : "bg-gray-900/50 border border-white/10"
                     }`}
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
-                        <span className="text-2xl font-bold">
+                        <span className="text-3xl font-bold">
                           {index === 0
                             ? "🥇"
                             : index === 1
@@ -442,25 +487,38 @@ function RacePageContent() {
                             ? "🥉"
                             : `#${index + 1}`}
                         </span>
-                        <span className="font-bold text-white">
-                          {player.username}
-                        </span>
-                        {player.socketId === socket?.id && (
-                          <Badge className="bg-blue-500/20 text-blue-300 border-blue-500/30">
-                            You
-                          </Badge>
-                        )}
+                        <div>
+                          <span className="font-bold text-white text-lg">
+                            {player.username}
+                          </span>
+                          <div className="flex gap-2 mt-1">
+                            {player.socketId === socket?.id && (
+                              <Badge className="bg-blue-500/20 text-blue-300 border-blue-500/30">
+                                You
+                              </Badge>
+                            )}
+                            {player.finished ? (
+                              <Badge className="bg-green-500/20 text-green-300 border-green-500/30">
+                                Finished
+                              </Badge>
+                            ) : (
+                              <Badge className="bg-red-500/20 text-red-300 border-red-500/30">
+                                DNF
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
                       </div>
                       <div className="text-right">
                         <div className="text-2xl font-bold text-white">
-                          {player.wpm} WPM
+                          {player.wpm || 0} WPM
                         </div>
                         <div className="text-sm text-white/70">
-                          {player.accuracy}% accuracy • {player.errors} errors
+                          {player.accuracy || 0}% accuracy
                         </div>
                         {player.finished && player.time && (
-                          <div className="text-sm text-white/70">
-                            {player.time.toFixed(1)}s
+                          <div className="text-sm text-green-400 font-medium">
+                            ⏱️ {typeof player.time === 'number' ? player.time.toFixed(1) : player.time}s
                           </div>
                         )}
                       </div>
@@ -468,11 +526,23 @@ function RacePageContent() {
                   </div>
                 ))}
               </div>
-              <div className="mt-6 flex gap-4">
+
+              <div className="mt-8 flex gap-4">
                 <Button
-                  onClick={() => router.push("/typer/race")}
+                  onClick={() => {
+                    setRoomId("");
+                    setRoomData(null);
+                    setRaceStarted(false);
+                    setShowResults(false);
+                    setRaceResults(null);
+                    setUserInput("");
+                    setTimeElapsed(0);
+                    setAutoJoined(false);
+                    setIsHost(false);
+                  }}
                   className="flex-1 btn-cartoon bg-blue-600 hover:bg-blue-700 text-white border-0"
                 >
+                  <Play className="w-4 h-4 mr-2" />
                   New Race
                 </Button>
                 <Button
@@ -512,6 +582,7 @@ function RacePageContent() {
               onStartRace={handleStartRace}
               roomData={roomData}
               socket={socket}
+              autoJoined={autoJoined}
             />
             {roomData && roomData.players && roomData.players.length > 0 && (
               <LiveLeaderboard
@@ -560,6 +631,20 @@ function RacePageContent() {
 
             <Card className="bg-white/10 border-white/20 backdrop-blur-sm">
               <CardContent className="p-6">
+                {/* Progress bar */}
+                <div className="mb-4">
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-white/70 text-sm">Your Progress</span>
+                    <span className="text-white font-bold">{Math.round(getProgressPercentage())}%</span>
+                  </div>
+                  <div className="w-full bg-gray-700/50 rounded-full h-3 overflow-hidden">
+                    <div
+                      className="bg-gradient-to-r from-blue-500 via-cyan-500 to-green-500 h-3 rounded-full transition-all duration-200 ease-out"
+                      style={{ width: `${getProgressPercentage()}%` }}
+                    />
+                  </div>
+                </div>
+
                 <div className="mb-4">
                   <p className="text-white/70 text-sm mb-2">
                     Type the text below:
@@ -567,7 +652,10 @@ function RacePageContent() {
                   <div className="bg-gray-900/50 p-6 rounded-lg border border-white/10 min-h-[150px]">
                     <p className="text-lg leading-relaxed font-mono">
                       {(roomData?.text || "").split("").map((char, index) => (
-                        <span key={index} className={getCharacterClass(index)}>
+                        <span 
+                          key={index} 
+                          className={`${getCharacterClass(index)} ${index === userInput.length ? 'border-l-2 border-yellow-400 animate-pulse' : ''}`}
+                        >
                           {char}
                         </span>
                       ))}
@@ -578,6 +666,7 @@ function RacePageContent() {
                   ref={inputRef}
                   value={userInput}
                   onChange={handleInputChange}
+                  onPaste={handlePaste}
                   disabled={countdown !== null || showResults}
                   placeholder={
                     countdown !== null

@@ -6,12 +6,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Users, Copy, Check, Play, Loader2 } from "lucide-react";
-import { useSocket } from "@/lib/socket/client";
 
-export function RoomLobby({ roomId, isHost, onStartRace, roomData, socket }) {
+export function RoomLobby({ roomId, isHost, onStartRace, roomData, socket, autoJoined = false }) {
   const [copied, setCopied] = useState(false);
   const [username, setUsername] = useState("");
-  const [joined, setJoined] = useState(false);
+  const [joined, setJoined] = useState(autoJoined);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -19,9 +18,18 @@ export function RoomLobby({ roomId, isHost, onStartRace, roomData, socket }) {
       const playerExists = roomData.players.some(
         (p) => p.socketId === socket?.id
       );
-      setJoined(playerExists);
+      if (playerExists) {
+        setJoined(true);
+      }
     }
   }, [roomData, socket]);
+
+  // If host, they're already joined when creating room
+  useEffect(() => {
+    if (isHost && autoJoined) {
+      setJoined(true);
+    }
+  }, [isHost, autoJoined]);
 
   const handleJoinRoom = async () => {
     if (!username.trim() || !socket) return;
@@ -40,10 +48,31 @@ export function RoomLobby({ roomId, isHost, onStartRace, roomData, socket }) {
     });
   };
 
-  const copyRoomCode = () => {
-    navigator.clipboard.writeText(roomId);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+  const copyRoomCode = async () => {
+    try {
+      // Try modern clipboard API first
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(roomId);
+      } else {
+        // Fallback for older browsers or non-secure contexts
+        const textArea = document.createElement("textarea");
+        textArea.value = roomId;
+        textArea.style.position = "fixed";
+        textArea.style.left = "-999999px";
+        textArea.style.top = "-999999px";
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        document.execCommand("copy");
+        document.body.removeChild(textArea);
+      }
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error("Failed to copy:", err);
+      // Show the room code in an alert as fallback
+      alert(`Room code: ${roomId}\n\nPlease copy manually.`);
+    }
   };
 
   if (!joined) {

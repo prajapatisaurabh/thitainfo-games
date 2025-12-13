@@ -16,6 +16,7 @@ import {
 import { Footer } from "@/components/layout/footer";
 import { Navbar } from "@/components/layout/navbar";
 import { ModeSelector } from "@/components/typer/ModeSelector";
+import { Confetti } from "@/components/typer/Confetti";
 
 // Static array of texts for typing
 const TYPING_TEXTS = [
@@ -150,6 +151,18 @@ export default function TyperPage() {
     setUserInput(value);
   };
 
+  // Prevent paste to avoid cheating
+  const handlePaste = (e) => {
+    e.preventDefault();
+    alert("Pasting is not allowed! Type the text yourself.");
+  };
+
+  // Calculate progress percentage
+  const getProgressPercentage = () => {
+    if (text.length === 0) return 0;
+    return Math.min((userInput.length / text.length) * 100, 100);
+  };
+
   const handleRestart = () => {
     const randomText =
       TYPING_TEXTS[Math.floor(Math.random() * TYPING_TEXTS.length)];
@@ -263,6 +276,22 @@ export default function TyperPage() {
           </div>
         )}
 
+        {/* Progress Bar */}
+        {isStarted && (
+          <div className="mb-4">
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-white/80 text-sm font-medium">Progress</span>
+              <span className="text-white font-bold">{Math.round(getProgressPercentage())}%</span>
+            </div>
+            <div className="w-full bg-gray-700/50 rounded-full h-3 overflow-hidden">
+              <div
+                className="bg-gradient-to-r from-blue-500 via-cyan-500 to-green-500 h-3 rounded-full transition-all duration-200 ease-out"
+                style={{ width: `${getProgressPercentage()}%` }}
+              />
+            </div>
+          </div>
+        )}
+
         {/* Typing Area */}
         <Card className="bg-white/15 border-white/30 backdrop-blur-md shadow-lg mb-6">
           <CardContent className="p-4 sm:p-6">
@@ -273,7 +302,10 @@ export default function TyperPage() {
               <div className="bg-gray-900/70 p-4 sm:p-6 rounded-lg border border-white/20 min-h-[120px] sm:min-h-[150px]">
                 <p className="text-base sm:text-lg leading-relaxed font-mono">
                   {text.split("").map((char, index) => (
-                    <span key={index} className={getCharacterClass(index)}>
+                    <span 
+                      key={index} 
+                      className={`${getCharacterClass(index)} ${index === userInput.length ? 'border-l-2 border-yellow-400 animate-pulse' : ''}`}
+                    >
                       {char}
                     </span>
                   ))}
@@ -286,6 +318,7 @@ export default function TyperPage() {
                 ref={inputRef}
                 value={userInput}
                 onChange={handleInputChange}
+                onPaste={handlePaste}
                 onKeyDown={(e) => {
                   if (e.key === "Tab") {
                     e.preventDefault();
@@ -312,6 +345,8 @@ export default function TyperPage() {
 
         {/* Results Modal */}
         {showResults && resultData && (
+          <>
+          <Confetti active={showResults} />
           <Card className="bg-gradient-to-br from-blue-600/30 to-purple-600/30 border-white/40 backdrop-blur-md shadow-xl">
             <CardContent className="p-6 sm:p-8 text-center">
               <Trophy className="w-12 h-12 sm:w-16 sm:h-16 text-yellow-400 mx-auto mb-4" />
@@ -360,6 +395,7 @@ export default function TyperPage() {
               </Button>
             </CardContent>
           </Card>
+          </>
         )}
       </div>
 
