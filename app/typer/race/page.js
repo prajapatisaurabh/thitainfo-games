@@ -45,6 +45,7 @@ function RacePageContent() {
   const inputRef = useRef(null);
   const timerRef = useRef(null);
   const progressIntervalRef = useRef(null);
+  const hasFinishedRef = useRef(false); // Track if player has already finished
 
   // Check if joining via room code from URL
   useEffect(() => {
@@ -62,6 +63,17 @@ function RacePageContent() {
       setRoomData(data);
       if (data.hostId === socket.id) {
         setIsHost(true);
+      }
+
+      // Keep updating race results if race is finished (to get latest player stats)
+      if (data.status === "finished" && showResults) {
+        setRaceResults((prev) => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            players: data.players, // Update with latest player data
+          };
+        });
       }
     });
 
@@ -82,7 +94,7 @@ function RacePageContent() {
       // Race ended - show results to all players
       setShowResults(true);
       setRaceStarted(false); // Stop the race
-      
+
       // Clear all timers immediately
       if (timerRef.current) {
         clearInterval(timerRef.current);
@@ -92,18 +104,33 @@ function RacePageContent() {
         clearInterval(progressIntervalRef.current);
         progressIntervalRef.current = null;
       }
-      
+
       if (data.results) {
-        setRaceResults({
-          players: data.results.sort((a, b) => {
-            if (a.finished && !b.finished) return -1;
-            if (!a.finished && b.finished) return 1;
-            if (a.finishedAt && b.finishedAt) {
-              return new Date(a.finishedAt) - new Date(b.finishedAt);
-            }
+        // Sort players: finished first (by time), then unfinished (by progress/wpm)
+        const sortedPlayers = [...data.results].sort((a, b) => {
+          // Finished players come first
+          if (a.finished && !b.finished) return -1;
+          if (!a.finished && b.finished) return 1;
+
+          // Both finished - sort by time (lower is better)
+          if (a.finished && b.finished) {
+            const timeA = a.time || Infinity;
+            const timeB = b.time || Infinity;
+            if (timeA !== timeB) return timeA - timeB;
+            // If same time, sort by WPM
             return (b.wpm || 0) - (a.wpm || 0);
-          }),
-          winner: data.winner,
+          }
+
+          // Both not finished - sort by progress, then WPM
+          if ((b.progress || 0) !== (a.progress || 0)) {
+            return (b.progress || 0) - (a.progress || 0);
+          }
+          return (b.wpm || 0) - (a.wpm || 0);
+        });
+
+        setRaceResults({
+          players: sortedPlayers,
+          winner: data.winner, // Winner is the first person to finish (from server)
         });
       }
     });
@@ -132,7 +159,7 @@ function RacePageContent() {
       socket.off("disconnect");
       socket.off("connect");
     };
-  }, [socket, roomId, username]);
+  }, [socket, roomId, username, showResults]);
 
   // Timer for race with timeout (5 minutes)
   useEffect(() => {
@@ -237,7 +264,10 @@ function RacePageContent() {
       const response = await fetch("/api/typer/create-room", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ hostId: socket.id, maxPlayers: maxPlayersInput }),
+        body: JSON.stringify({
+          hostId: socket.id,
+          maxPlayers: maxPlayersInput,
+        }),
       });
 
       const data = await response.json();
@@ -289,6 +319,12 @@ function RacePageContent() {
   };
 
   const handleRaceFinish = async () => {
+    // Prevent multiple finish calls
+    if (hasFinishedRef.current) {
+      return;
+    }
+    hasFinishedRef.current = true;
+
     // The server will broadcast race-finished event to all players
     // This is called when the current player finishes typing
     const text = roomData?.text || "";
@@ -388,7 +424,9 @@ function RacePageContent() {
                   <h2 className="text-xl font-bold mb-3 text-white">
                     Your Details
                   </h2>
-                  <label className="text-white/70 text-sm mb-2 block">Username</label>
+                  <label className="text-white/70 text-sm mb-2 block">
+                    Username
+                  </label>
                   <Input
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
@@ -399,19 +437,32 @@ function RacePageContent() {
 
                 {/* Create Room Section */}
                 <div className="mb-6 p-4 bg-blue-500/10 rounded-lg border border-blue-500/20">
-                  <h3 className="text-lg font-semibold mb-3 text-blue-300">Create New Room</h3>
+                  <h3 className="text-lg font-semibold mb-3 text-blue-300">
+                    Create New Room
+                  </h3>
                   <div className="mb-3">
-                    <label className="text-white/70 text-sm mb-2 block">Max Players</label>
+                    <label className="text-white/70 text-sm mb-2 block">
+                      Max Players
+                    </label>
                     <Input
                       type="number"
                       value={maxPlayersInput}
-                      onChange={(e) => setMaxPlayersInput(Math.max(2, Math.min(50, parseInt(e.target.value) || 2)))}
+                      onChange={(e) =>
+                        setMaxPlayersInput(
+                          Math.max(
+                            2,
+                            Math.min(50, parseInt(e.target.value) || 2)
+                          )
+                        )
+                      }
                       placeholder="Max players (2-50)"
                       min={2}
                       max={50}
                       className="bg-gray-900/50 border-white/10 text-white"
                     />
-                    <p className="text-white/50 text-xs mt-1">Set how many players can join (2-50)</p>
+                    <p className="text-white/50 text-xs mt-1">
+                      Set how many players can join (2-50)
+                    </p>
                   </div>
                   <Button
                     onClick={handleCreateRoom}
@@ -427,12 +478,18 @@ function RacePageContent() {
 
                 {/* Join Room Section */}
                 <div className="p-4 bg-green-500/10 rounded-lg border border-green-500/20">
-                  <h3 className="text-lg font-semibold mb-3 text-green-300">Join Existing Room</h3>
+                  <h3 className="text-lg font-semibold mb-3 text-green-300">
+                    Join Existing Room
+                  </h3>
                   <div className="mb-3">
-                    <label className="text-white/70 text-sm mb-2 block">Room Code</label>
+                    <label className="text-white/70 text-sm mb-2 block">
+                      Room Code
+                    </label>
                     <Input
                       value={roomCodeInput}
-                      onChange={(e) => setRoomCodeInput(e.target.value.toUpperCase())}
+                      onChange={(e) =>
+                        setRoomCodeInput(e.target.value.toUpperCase())
+                      }
                       placeholder="Enter 6-digit room code"
                       className="bg-gray-900/50 border-white/10 text-white"
                       maxLength={6}
@@ -467,6 +524,31 @@ function RacePageContent() {
 
   if (showResults && raceResults) {
     const isWinner = raceResults.winner?.socketId === socket?.id;
+
+    // Sort players for display: finished first (by time), then unfinished (by progress/wpm)
+    const sortedResultPlayers = [...(raceResults.players || [])].sort(
+      (a, b) => {
+        // Finished players always come first
+        if (a.finished && !b.finished) return -1;
+        if (!a.finished && b.finished) return 1;
+
+        if (a.finished && b.finished) {
+          // Both finished - sort by time (lower is better)
+          const timeA = typeof a.time === "number" ? a.time : Infinity;
+          const timeB = typeof b.time === "number" ? b.time : Infinity;
+          if (timeA !== timeB) return timeA - timeB;
+          // Same time, sort by WPM (higher is better)
+          return (b.wpm || 0) - (a.wpm || 0);
+        }
+
+        // Both not finished - sort by progress, then WPM
+        const progressA = a.progress || 0;
+        const progressB = b.progress || 0;
+        if (progressB !== progressA) return progressB - progressA;
+        return (b.wpm || 0) - (a.wpm || 0);
+      }
+    );
+
     return (
       <div className="min-h-screen gradient-dark animate-gradient text-white">
         <Confetti active={isWinner} />
@@ -486,8 +568,21 @@ function RacePageContent() {
                       🏆 {raceResults.winner.username} 🏆
                     </p>
                     <p className="text-white/80 mt-1">
-                      {raceResults.winner.wpm} WPM •{" "}
-                      {raceResults.winner.accuracy}% accuracy
+                      {raceResults.winner.wpm || 0} WPM •{" "}
+                      {raceResults.winner.accuracy !== undefined
+                        ? raceResults.winner.accuracy
+                        : 100}
+                      % accuracy
+                      {raceResults.winner.time && (
+                        <>
+                          {" "}
+                          •{" "}
+                          {typeof raceResults.winner.time === "number"
+                            ? raceResults.winner.time.toFixed(1)
+                            : raceResults.winner.time}
+                          s
+                        </>
+                      )}
                     </p>
                   </div>
                 )}
@@ -502,9 +597,9 @@ function RacePageContent() {
 
               <h3 className="text-xl font-bold mb-4 text-white">Leaderboard</h3>
               <div className="space-y-3">
-                {raceResults.players.map((player, index) => (
+                {sortedResultPlayers.map((player, index) => (
                   <div
-                    key={index}
+                    key={player.socketId || index}
                     className={`p-4 rounded-lg transition-all ${
                       index === 0
                         ? "bg-gradient-to-r from-yellow-500/30 to-orange-500/30 border-2 border-yellow-500"
@@ -553,9 +648,12 @@ function RacePageContent() {
                           {player.wpm || 0} WPM
                         </div>
                         <div className="text-sm text-white/70">
-                          {player.accuracy || 0}% accuracy
+                          {player.accuracy !== undefined
+                            ? player.accuracy
+                            : 100}
+                          % accuracy • {player.errors || 0} errors
                         </div>
-                        {player.finished && player.time && (
+                        {player.finished && player.time ? (
                           <div className="text-sm text-green-400 font-medium">
                             ⏱️{" "}
                             {typeof player.time === "number"
@@ -563,7 +661,11 @@ function RacePageContent() {
                               : player.time}
                             s
                           </div>
-                        )}
+                        ) : !player.finished ? (
+                          <div className="text-sm text-red-400 font-medium">
+                            Progress: {Math.round(player.progress || 0)}%
+                          </div>
+                        ) : null}
                       </div>
                     </div>
                   </div>
@@ -584,6 +686,7 @@ function RacePageContent() {
                     setAutoJoined(false);
                     setIsHost(false);
                     setCountdown(null);
+                    hasFinishedRef.current = false; // Reset finished flag for new race
                     // Clear timers
                     if (timerRef.current) {
                       clearInterval(timerRef.current);

@@ -9,24 +9,35 @@ export function LiveLeaderboard({
   currentPlayerId,
   isRaceFinished = false,
 }) {
-  // Sort players by: finished status → progress → wpm → accuracy
+  // Sort players by: finished status → time (for finished) → progress → wpm → accuracy
   const sortedPlayers = [...(players || [])].sort((a, b) => {
+    // Finished players always come first
     if (a.finished && !b.finished) return -1;
     if (!a.finished && b.finished) return 1;
+
     if (a.finished && b.finished) {
-      // Both finished, sort by time (lower is better)
-      return (a.time || 0) - (b.time || 0);
+      // Both finished - sort by time (lower is better)
+      const timeA = typeof a.time === "number" ? a.time : Infinity;
+      const timeB = typeof b.time === "number" ? b.time : Infinity;
+      if (timeA !== timeB) return timeA - timeB;
+      // Same time, sort by WPM (higher is better)
+      return (b.wpm || 0) - (a.wpm || 0);
     }
-    // Both not finished, sort by progress
-    if (b.progress !== a.progress) {
-      return b.progress - a.progress;
+
+    // Both not finished - sort by progress (higher is better)
+    const progressA = a.progress || 0;
+    const progressB = b.progress || 0;
+    if (progressB !== progressA) {
+      return progressB - progressA;
     }
-    // Same progress, sort by WPM
-    if (b.wpm !== a.wpm) {
-      return b.wpm - a.wpm;
+    // Same progress, sort by WPM (higher is better)
+    const wpmA = a.wpm || 0;
+    const wpmB = b.wpm || 0;
+    if (wpmB !== wpmA) {
+      return wpmB - wpmA;
     }
-    // Same WPM, sort by accuracy
-    return b.accuracy - a.accuracy;
+    // Same WPM, sort by accuracy (higher is better)
+    return (b.accuracy || 0) - (a.accuracy || 0);
   });
 
   const getRankIcon = (index) => {
@@ -86,12 +97,24 @@ export function LiveLeaderboard({
                       : "grid-cols-4"
                   } gap-2 text-sm`}
                 >
+                  {/* Show progress during race, or final progress when finished */}
                   {!isRaceFinished && (
                     <div className="flex items-center gap-1">
                       <Target className="w-4 h-4 text-green-400" />
                       <span className="text-white/70">Progress:</span>
                       <span className="text-white font-bold">
                         {Math.round(player.progress || 0)}%
+                      </span>
+                    </div>
+                  )}
+                  {isRaceFinished && (
+                    <div className="flex items-center gap-1">
+                      <Target className="w-4 h-4 text-green-400" />
+                      <span className="text-white/70">Progress:</span>
+                      <span className="text-white font-bold">
+                        {player.finished
+                          ? "100%"
+                          : `${Math.round(player.progress || 0)}%`}
                       </span>
                     </div>
                   )}
@@ -106,7 +129,7 @@ export function LiveLeaderboard({
                     <Trophy className="w-4 h-4 text-yellow-400" />
                     <span className="text-white/70">Accuracy:</span>
                     <span className="text-white font-bold">
-                      {player.accuracy || 100}%
+                      {player.accuracy !== undefined ? player.accuracy : 100}%
                     </span>
                   </div>
                   <div className="flex items-center gap-1">
@@ -116,15 +139,18 @@ export function LiveLeaderboard({
                       {player.errors || 0}
                     </span>
                   </div>
-                  {isRaceFinished && player.time && (
+                  {isRaceFinished && (
                     <div className="flex items-center gap-1">
                       <Timer className="w-4 h-4 text-cyan-400" />
                       <span className="text-white/70">Time:</span>
                       <span className="text-cyan-300 font-bold">
-                        {typeof player.time === "number"
-                          ? player.time.toFixed(1)
-                          : player.time}
-                        s
+                        {player.finished && player.time
+                          ? `${
+                              typeof player.time === "number"
+                                ? player.time.toFixed(1)
+                                : player.time
+                            }s`
+                          : "DNF"}
                       </span>
                     </div>
                   )}

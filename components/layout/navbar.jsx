@@ -1,6 +1,6 @@
 "use client";
 
-import { Menu, Gamepad2, X } from "lucide-react";
+import { Menu, Gamepad2, X, BookOpen } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
@@ -32,6 +32,13 @@ export const Navbar = () => {
               className="text-white/80 hover:text-white transition-all duration-300 font-medium"
             >
               Typer
+            </Link>
+            <Link
+              href="/docs"
+              className="text-white/80 hover:text-white transition-all duration-300 font-medium flex items-center gap-1"
+            >
+              <BookOpen className="w-4 h-4" />
+              Docs
             </Link>
             <Link
               href="https://thitainfo.com"
@@ -76,6 +83,13 @@ export const Navbar = () => {
               className="block py-2 text-white/80 hover:text-white transition-colors font-medium"
             >
               Typer
+            </Link>
+            <Link
+              href="/docs"
+              className="py-2 text-white/80 hover:text-white transition-colors font-medium flex items-center gap-2"
+            >
+              <BookOpen className="w-4 h-4" />
+              Docs
             </Link>
             <Link
               href="https://thitainfo.com"
