@@ -1,22 +1,5 @@
 import { NextResponse } from "next/server";
-import { MongoClient } from "mongodb";
-
-let client = null;
-let db = null;
-
-const connectDB = async () => {
-  if (db) return db;
-
-  try {
-    client = new MongoClient(process.env.MONGO_URL);
-    await client.connect();
-    db = client.db(process.env.DB_NAME || "thitainfo_games");
-    return db;
-  } catch (error) {
-    console.error("MongoDB connection error:", error);
-    throw error;
-  }
-};
+import { getDB } from "@/lib/db";
 
 export async function POST(request) {
   try {
@@ -31,12 +14,12 @@ export async function POST(request) {
     ) {
       return NextResponse.json(
         { success: false, message: "Invalid data format" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     // Connect to database
-    const database = await connectDB();
+    const database = await getDB();
     const collection = database.collection("typer_results");
 
     // Prepare result document
@@ -65,8 +48,7 @@ export async function POST(request) {
         message: "Error saving result",
         error: error.message,
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
-

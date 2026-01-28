@@ -17,20 +17,7 @@ import { Footer } from "@/components/layout/footer";
 import { Navbar } from "@/components/layout/navbar";
 import { ModeSelector } from "@/components/typer/ModeSelector";
 import { Confetti } from "@/components/typer/Confetti";
-
-// Static array of texts for typing
-const TYPING_TEXTS = [
-  "The quick brown fox jumps over the lazy dog. This sentence contains every letter of the alphabet.",
-  "Programming is the art of telling a computer what to do through a series of instructions. It requires logic, creativity, and problem-solving skills.",
-  "Technology has transformed the way we live, work, and communicate. From smartphones to artificial intelligence, innovation continues to shape our future.",
-  "Practice makes perfect. The more you type, the faster and more accurate you become. Consistency is key to improving your typing skills.",
-  "Web development combines creativity with technical skills. Building websites requires knowledge of HTML, CSS, JavaScript, and various frameworks.",
-  "The best way to learn programming is by doing. Start with simple projects and gradually work your way up to more complex applications.",
-  "Clean code is not written by following a set of rules. You don't become a software craftsman by learning a list of heuristics.",
-  "The only way to do great work is to love what you do. If you haven't found it yet, keep looking. Don't settle.",
-  "Innovation distinguishes between a leader and a follower. Think different and challenge the status quo.",
-  "Success is not final, failure is not fatal: it is the courage to continue that counts.",
-];
+import { TYPING_TEXTS, getRandomText } from "@/lib/constants";
 
 export default function TyperPage() {
   const [text, setText] = useState("");
@@ -48,9 +35,7 @@ export default function TyperPage() {
 
   // Initialize with random text
   useEffect(() => {
-    const randomText =
-      TYPING_TEXTS[Math.floor(Math.random() * TYPING_TEXTS.length)];
-    setText(randomText);
+    setText(getRandomText());
   }, []);
 
   // Timer effect
@@ -75,9 +60,12 @@ export default function TyperPage() {
   useEffect(() => {
     if (isStarted && userInput.length > 0) {
       const timeInMinutes = timeElapsed / 60;
-      const wordsTyped = userInput.trim().split(/\s+/).length;
+      // Standard WPM calculation: (characters / 5) / minutes
+      // 5 characters = 1 word (industry standard)
       const calculatedWpm =
-        timeInMinutes > 0 ? Math.round(wordsTyped / timeInMinutes) : 0;
+        timeInMinutes > 0
+          ? Math.round(userInput.length / 5 / timeInMinutes)
+          : 0;
       setWpm(calculatedWpm);
 
       // Calculate accuracy
@@ -115,9 +103,9 @@ export default function TyperPage() {
 
   const calculateFinalResults = async () => {
     const timeInMinutes = timeElapsed / 60;
-    const wordsTyped = text.trim().split(/\s+/).length;
+    // Standard WPM calculation: (characters / 5) / minutes
     const finalWpm =
-      timeInMinutes > 0 ? Math.round(wordsTyped / timeInMinutes) : 0;
+      timeInMinutes > 0 ? Math.round(text.length / 5 / timeInMinutes) : 0;
 
     const result = {
       wpm: finalWpm,
@@ -164,9 +152,7 @@ export default function TyperPage() {
   };
 
   const handleRestart = () => {
-    const randomText =
-      TYPING_TEXTS[Math.floor(Math.random() * TYPING_TEXTS.length)];
-    setText(randomText);
+    setText(getRandomText());
     setUserInput("");
     setIsStarted(false);
     setIsFinished(false);
@@ -280,8 +266,12 @@ export default function TyperPage() {
         {isStarted && (
           <div className="mb-4">
             <div className="flex justify-between items-center mb-2">
-              <span className="text-white/80 text-sm font-medium">Progress</span>
-              <span className="text-white font-bold">{Math.round(getProgressPercentage())}%</span>
+              <span className="text-white/80 text-sm font-medium">
+                Progress
+              </span>
+              <span className="text-white font-bold">
+                {Math.round(getProgressPercentage())}%
+              </span>
             </div>
             <div className="w-full bg-gray-700/50 rounded-full h-3 overflow-hidden">
               <div
@@ -302,9 +292,9 @@ export default function TyperPage() {
               <div className="bg-gray-900/70 p-4 sm:p-6 rounded-lg border border-white/20 min-h-[120px] sm:min-h-[150px]">
                 <p className="text-base sm:text-lg leading-relaxed font-mono">
                   {text.split("").map((char, index) => (
-                    <span 
-                      key={index} 
-                      className={`${getCharacterClass(index)} ${index === userInput.length ? 'border-l-2 border-yellow-400 animate-pulse' : ''}`}
+                    <span
+                      key={index}
+                      className={`${getCharacterClass(index)} ${index === userInput.length ? "border-l-2 border-yellow-400 animate-pulse" : ""}`}
                     >
                       {char}
                     </span>
@@ -346,55 +336,55 @@ export default function TyperPage() {
         {/* Results Modal */}
         {showResults && resultData && (
           <>
-          <Confetti active={showResults} />
-          <Card className="bg-gradient-to-br from-blue-600/30 to-purple-600/30 border-white/40 backdrop-blur-md shadow-xl">
-            <CardContent className="p-6 sm:p-8 text-center">
-              <Trophy className="w-12 h-12 sm:w-16 sm:h-16 text-yellow-400 mx-auto mb-4" />
-              <h2 className="text-2xl sm:text-3xl font-bold mb-6 text-white">
-                Test Complete!
-              </h2>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 mb-6">
-                <div>
-                  <p className="text-white/90 text-xs sm:text-sm mb-1 font-medium">
-                    WPM
-                  </p>
-                  <p className="text-2xl sm:text-3xl font-bold text-white">
-                    {resultData.wpm}
-                  </p>
+            <Confetti active={showResults} />
+            <Card className="bg-gradient-to-br from-blue-600/30 to-purple-600/30 border-white/40 backdrop-blur-md shadow-xl">
+              <CardContent className="p-6 sm:p-8 text-center">
+                <Trophy className="w-12 h-12 sm:w-16 sm:h-16 text-yellow-400 mx-auto mb-4" />
+                <h2 className="text-2xl sm:text-3xl font-bold mb-6 text-white">
+                  Test Complete!
+                </h2>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 mb-6">
+                  <div>
+                    <p className="text-white/90 text-xs sm:text-sm mb-1 font-medium">
+                      WPM
+                    </p>
+                    <p className="text-2xl sm:text-3xl font-bold text-white">
+                      {resultData.wpm}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-white/90 text-xs sm:text-sm mb-1 font-medium">
+                      Accuracy
+                    </p>
+                    <p className="text-2xl sm:text-3xl font-bold text-white">
+                      {resultData.accuracy}%
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-white/90 text-xs sm:text-sm mb-1 font-medium">
+                      Time
+                    </p>
+                    <p className="text-2xl sm:text-3xl font-bold text-white">
+                      {resultData.time}s
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-white/90 text-xs sm:text-sm mb-1 font-medium">
+                      Errors
+                    </p>
+                    <p className="text-2xl sm:text-3xl font-bold text-white">
+                      {resultData.errors}
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-white/90 text-xs sm:text-sm mb-1 font-medium">
-                    Accuracy
-                  </p>
-                  <p className="text-2xl sm:text-3xl font-bold text-white">
-                    {resultData.accuracy}%
-                  </p>
-                </div>
-                <div>
-                  <p className="text-white/90 text-xs sm:text-sm mb-1 font-medium">
-                    Time
-                  </p>
-                  <p className="text-2xl sm:text-3xl font-bold text-white">
-                    {resultData.time}s
-                  </p>
-                </div>
-                <div>
-                  <p className="text-white/90 text-xs sm:text-sm mb-1 font-medium">
-                    Errors
-                  </p>
-                  <p className="text-2xl sm:text-3xl font-bold text-white">
-                    {resultData.errors}
-                  </p>
-                </div>
-              </div>
-              <Button
-                onClick={handleRestart}
-                className="btn-cartoon bg-blue-600 hover:bg-blue-700 text-white border-0 text-sm sm:text-base px-6 sm:px-8"
-              >
-                Try Again
-              </Button>
-            </CardContent>
-          </Card>
+                <Button
+                  onClick={handleRestart}
+                  className="btn-cartoon bg-blue-600 hover:bg-blue-700 text-white border-0 text-sm sm:text-base px-6 sm:px-8"
+                >
+                  Try Again
+                </Button>
+              </CardContent>
+            </Card>
           </>
         )}
       </div>
@@ -403,4 +393,3 @@ export default function TyperPage() {
     </div>
   );
 }
-

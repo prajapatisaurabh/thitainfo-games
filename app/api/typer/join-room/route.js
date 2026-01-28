@@ -1,22 +1,5 @@
 import { NextResponse } from "next/server";
-import { MongoClient } from "mongodb";
-
-let client = null;
-let db = null;
-
-const connectDB = async () => {
-  if (db) return db;
-
-  try {
-    client = new MongoClient(process.env.MONGO_URL);
-    await client.connect();
-    db = client.db(process.env.DB_NAME || "thitainfo_games");
-    return db;
-  } catch (error) {
-    console.error("MongoDB connection error:", error);
-    throw error;
-  }
-};
+import { getDB } from "@/lib/db";
 
 export async function POST(request) {
   try {
@@ -26,12 +9,12 @@ export async function POST(request) {
     if (!roomId) {
       return NextResponse.json(
         { success: false, message: "Room ID is required" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     // Connect to database
-    const database = await connectDB();
+    const database = await getDB();
     const roomsCollection = database.collection("typer_rooms");
 
     // Find room
@@ -40,7 +23,7 @@ export async function POST(request) {
     if (!room) {
       return NextResponse.json(
         { success: false, message: "Room not found" },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
@@ -48,7 +31,7 @@ export async function POST(request) {
     if (room.players.length >= room.maxPlayers) {
       return NextResponse.json(
         { success: false, message: "Room is full" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -56,7 +39,7 @@ export async function POST(request) {
     if (room.status === "active" || room.status === "finished") {
       return NextResponse.json(
         { success: false, message: "Race has already started or finished" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -78,7 +61,7 @@ export async function POST(request) {
         message: "Error joining room",
         error: error.message,
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

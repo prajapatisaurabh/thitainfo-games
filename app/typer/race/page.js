@@ -65,8 +65,56 @@ function RacePageContent() {
         setIsHost(true);
       }
 
-      // Keep updating race results if race is finished (to get latest player stats)
-      if (data.status === "finished" && showResults) {
+      // Fallback: If race is finished but results aren't showing, trigger results display
+      // This handles cases where race-finished event was missed
+      if (data.status === "finished" && !showResults && raceStarted) {
+        setShowResults(true);
+        setRaceStarted(false);
+
+        // Clear timers
+        if (timerRef.current) {
+          clearInterval(timerRef.current);
+          timerRef.current = null;
+        }
+        if (progressIntervalRef.current) {
+          clearInterval(progressIntervalRef.current);
+          progressIntervalRef.current = null;
+        }
+
+        // Sort players for results
+        const sortedPlayers = [...(data.players || [])].sort((a, b) => {
+          if (a.finished && !b.finished) return -1;
+          if (!a.finished && b.finished) return 1;
+          if (a.finished && b.finished) {
+            const timeA = a.time || Infinity;
+            const timeB = b.time || Infinity;
+            if (timeA !== timeB) return timeA - timeB;
+            return (b.wpm || 0) - (a.wpm || 0);
+          }
+          if ((b.progress || 0) !== (a.progress || 0)) {
+            return (b.progress || 0) - (a.progress || 0);
+          }
+          return (b.wpm || 0) - (a.wpm || 0);
+        });
+
+        // Find winner (first finished player)
+        const winner = sortedPlayers.find((p) => p.finished);
+
+        setRaceResults({
+          players: sortedPlayers,
+          winner: winner
+            ? {
+                socketId: winner.socketId,
+                username: winner.username,
+                wpm: winner.wpm,
+                accuracy: winner.accuracy,
+                errors: winner.errors,
+                time: winner.time,
+              }
+            : null,
+        });
+      } else if (data.status === "finished" && showResults) {
+        // Keep updating race results if race is finished (to get latest player stats)
         setRaceResults((prev) => {
           if (!prev) return prev;
           return {
@@ -159,7 +207,7 @@ function RacePageContent() {
       socket.off("disconnect");
       socket.off("connect");
     };
-  }, [socket, roomId, username, showResults]);
+  }, [socket, roomId, username, showResults, raceStarted]);
 
   // Timer for race with timeout (5 minutes)
   useEffect(() => {
@@ -199,9 +247,12 @@ function RacePageContent() {
         const progress =
           text.length > 0 ? (userInput.length / text.length) * 100 : 0;
         const timeInMinutes = timeElapsed / 60;
-        const wordsTyped = userInput.trim().split(/\s+/).length;
+        // Standard WPM calculation: (characters / 5) / minutes
+        // 5 characters = 1 word (industry standard)
         const wpm =
-          timeInMinutes > 0 ? Math.round(wordsTyped / timeInMinutes) : 0;
+          timeInMinutes > 0
+            ? Math.round(userInput.length / 5 / timeInMinutes)
+            : 0;
 
         let correctChars = 0;
         const minLength = Math.min(userInput.length, text.length);
@@ -329,9 +380,10 @@ function RacePageContent() {
     // This is called when the current player finishes typing
     const text = roomData?.text || "";
     const timeInMinutes = timeElapsed / 60;
-    const wordsTyped = text.trim().split(/\s+/).length;
+    // Standard WPM calculation: (characters / 5) / minutes
+    // Use the text length since player has finished typing the complete text
     const finalWpm =
-      timeInMinutes > 0 ? Math.round(wordsTyped / timeInMinutes) : 0;
+      timeInMinutes > 0 ? Math.round(text.length / 5 / timeInMinutes) : 0;
 
     let correctChars = 0;
     const minLength = Math.min(userInput.length, text.length);
@@ -451,8 +503,8 @@ function RacePageContent() {
                         setMaxPlayersInput(
                           Math.max(
                             2,
-                            Math.min(50, parseInt(e.target.value) || 2)
-                          )
+                            Math.min(50, parseInt(e.target.value) || 2),
+                          ),
                         )
                       }
                       placeholder="Max players (2-50)"
@@ -546,7 +598,7 @@ function RacePageContent() {
         const progressB = b.progress || 0;
         if (progressB !== progressA) return progressB - progressA;
         return (b.wpm || 0) - (a.wpm || 0);
-      }
+      },
     );
 
     return (
@@ -572,16 +624,9 @@ function RacePageContent() {
                       {raceResults.winner.accuracy !== undefined
                         ? raceResults.winner.accuracy
                         : 100}
-                      % accuracy
-                      {raceResults.winner.time && (
-                        <>
-                          {" "}
-                          •{" "}
-                          {typeof raceResults.winner.time === "number"
-                            ? raceResults.winner.time.toFixed(1)
-                            : raceResults.winner.time}
-                          s
-                        </>
+                      % accuracy • {raceResults.winner.errors || 0} errors
+                      {typeof raceResults.winner.time === "number" && (
+                        <> • {raceResults.winner.time.toFixed(1)}s</>
                       )}
                     </p>
                   </div>
@@ -604,10 +649,10 @@ function RacePageContent() {
                       index === 0
                         ? "bg-gradient-to-r from-yellow-500/30 to-orange-500/30 border-2 border-yellow-500"
                         : index === 1
-                        ? "bg-gradient-to-r from-gray-400/20 to-gray-300/20 border border-gray-400"
-                        : index === 2
-                        ? "bg-gradient-to-r from-orange-700/20 to-orange-600/20 border border-orange-600"
-                        : "bg-gray-900/50 border border-white/10"
+                          ? "bg-gradient-to-r from-gray-400/20 to-gray-300/20 border border-gray-400"
+                          : index === 2
+                            ? "bg-gradient-to-r from-orange-700/20 to-orange-600/20 border border-orange-600"
+                            : "bg-gray-900/50 border border-white/10"
                     }`}
                   >
                     <div className="flex items-center justify-between">
@@ -616,10 +661,10 @@ function RacePageContent() {
                           {index === 0
                             ? "🥇"
                             : index === 1
-                            ? "🥈"
-                            : index === 2
-                            ? "🥉"
-                            : `#${index + 1}`}
+                              ? "🥈"
+                              : index === 2
+                                ? "🥉"
+                                : `#${index + 1}`}
                         </span>
                         <div>
                           <span className="font-bold text-white text-lg">
@@ -653,13 +698,9 @@ function RacePageContent() {
                             : 100}
                           % accuracy • {player.errors || 0} errors
                         </div>
-                        {player.finished && player.time ? (
+                        {player.finished && typeof player.time === "number" ? (
                           <div className="text-sm text-green-400 font-medium">
-                            ⏱️{" "}
-                            {typeof player.time === "number"
-                              ? player.time.toFixed(1)
-                              : player.time}
-                            s
+                            ⏱️ {player.time.toFixed(1)}s
                           </div>
                         ) : !player.finished ? (
                           <div className="text-sm text-red-400 font-medium">
@@ -770,7 +811,7 @@ function RacePageContent() {
                       <div className="text-white/70 text-sm mb-1">WPM</div>
                       <div className="text-2xl font-bold text-white">
                         {roomData?.players?.find(
-                          (p) => p.socketId === socket?.id
+                          (p) => p.socketId === socket?.id,
                         )?.wpm || 0}
                       </div>
                     </div>
@@ -778,7 +819,7 @@ function RacePageContent() {
                       <div className="text-white/70 text-sm mb-1">Accuracy</div>
                       <div className="text-2xl font-bold text-white">
                         {roomData?.players?.find(
-                          (p) => p.socketId === socket?.id
+                          (p) => p.socketId === socket?.id,
                         )?.accuracy || 100}
                         %
                       </div>

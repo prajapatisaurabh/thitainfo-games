@@ -1,25 +1,8 @@
 import { NextResponse } from "next/server";
-import { MongoClient } from "mongodb";
+import { getDB } from "@/lib/db";
 
 // Force dynamic rendering since we access searchParams
 export const dynamic = "force-dynamic";
-
-let client = null;
-let db = null;
-
-const connectDB = async () => {
-  if (db) return db;
-
-  try {
-    client = new MongoClient(process.env.MONGO_URL);
-    await client.connect();
-    db = client.db(process.env.DB_NAME || "thitainfo_games");
-    return db;
-  } catch (error) {
-    console.error("MongoDB connection error:", error);
-    throw error;
-  }
-};
 
 export async function GET(request) {
   try {
@@ -27,7 +10,7 @@ export async function GET(request) {
     const limit = parseInt(searchParams.get("limit") || "10");
 
     // Connect to database
-    const database = await connectDB();
+    const database = await getDB();
     const collection = database.collection("typer_results");
 
     // Get recent results, sorted by date (newest first)
@@ -50,8 +33,7 @@ export async function GET(request) {
         message: "Error fetching history",
         error: error.message,
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
-
