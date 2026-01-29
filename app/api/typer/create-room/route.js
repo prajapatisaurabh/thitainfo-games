@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getDB } from "@/lib/db";
-import { getRandomText } from "@/lib/constants";
+import { getRandomText, calculateTimerFromText } from "@/lib/constants";
 
 // Generate random room code
 function generateRoomCode() {
@@ -15,7 +15,13 @@ function generateRoomCode() {
 export async function POST(request) {
   try {
     const body = await request.json();
-    const { hostId, text, maxPlayers = 10 } = body;
+    const {
+      hostId,
+      text,
+      maxPlayers = 10,
+      timerMode = "text-based",
+      timerDuration = 120,
+    } = body;
 
     if (!hostId) {
       return NextResponse.json(
@@ -42,6 +48,12 @@ export async function POST(request) {
     // Select random text if not provided
     const selectedText = text || getRandomText();
 
+    // Calculate race duration based on timer mode
+    const calculatedDuration =
+      timerMode === "text-based"
+        ? calculateTimerFromText(selectedText)
+        : parseInt(timerDuration) || 120;
+
     // Create room
     const room = {
       roomId,
@@ -51,6 +63,12 @@ export async function POST(request) {
       status: "waiting",
       createdAt: new Date(),
       maxPlayers: parseInt(maxPlayers) || 10,
+      timerMode,
+      timerDuration: timerMode === "fixed" ? parseInt(timerDuration) : null,
+      calculatedDuration,
+      graceEndTime: null,
+      firstFinisherId: null,
+      firstFinisherTime: null,
     };
 
     await roomsCollection.insertOne(room);
@@ -61,6 +79,9 @@ export async function POST(request) {
         roomId,
         text: selectedText,
         maxPlayers: room.maxPlayers,
+        timerMode: room.timerMode,
+        timerDuration: room.timerDuration,
+        calculatedDuration: room.calculatedDuration,
       },
     });
   } catch (error) {

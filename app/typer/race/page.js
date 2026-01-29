@@ -16,6 +16,7 @@ import {
   Clock,
   Target,
   AlertCircle,
+  Timer,
 } from "lucide-react";
 import { Footer } from "@/components/layout/footer";
 import { Navbar } from "@/components/layout/navbar";
@@ -42,9 +43,15 @@ function RacePageContent() {
   const [showResults, setShowResults] = useState(false);
   const [raceResults, setRaceResults] = useState(null);
   const [maxPlayersInput, setMaxPlayersInput] = useState(10); // Configurable max players
+  const [timerMode, setTimerMode] = useState("text-based"); // Timer mode selection
+  const [timerDuration, setTimerDuration] = useState(120); // Fixed timer duration
+  const [raceDuration, setRaceDuration] = useState(120); // Actual race duration from server
+  const [graceCountdown, setGraceCountdown] = useState(null); // Grace period countdown
+  const [firstFinisher, setFirstFinisher] = useState(null); // First finisher info
   const inputRef = useRef(null);
   const timerRef = useRef(null);
   const progressIntervalRef = useRef(null);
+  const graceIntervalRef = useRef(null);
   const hasFinishedRef = useRef(false); // Track if player has already finished
 
   // Check if joining via room code from URL
@@ -129,19 +136,50 @@ function RacePageContent() {
       setCountdown(data.countdown);
     });
 
-    socket.on("race-started", () => {
+    socket.on("race-started", (data) => {
       setCountdown(null);
       setRaceStarted(true);
       setTimeElapsed(0);
+      if (data?.raceDuration) {
+        setRaceDuration(data.raceDuration);
+      }
       if (inputRef.current) {
         inputRef.current.focus();
       }
+    });
+
+    socket.on("first-player-finished", (data) => {
+      setFirstFinisher({
+        name: data.finisherName,
+        socketId: data.finisherId,
+        gracePeriodSeconds: data.gracePeriodSeconds,
+      });
+      setGraceCountdown(data.gracePeriodSeconds);
+
+      // Clear any existing grace interval
+      if (graceIntervalRef.current) {
+        clearInterval(graceIntervalRef.current);
+      }
+
+      // Start grace countdown
+      graceIntervalRef.current = setInterval(() => {
+        setGraceCountdown((prev) => {
+          if (prev <= 1) {
+            clearInterval(graceIntervalRef.current);
+            graceIntervalRef.current = null;
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
     });
 
     socket.on("race-finished", (data) => {
       // Race ended - show results to all players
       setShowResults(true);
       setRaceStarted(false); // Stop the race
+      setGraceCountdown(null); // Clear grace countdown
+      setFirstFinisher(null); // Clear first finisher
 
       // Clear all timers immediately
       if (timerRef.current) {
@@ -151,6 +189,10 @@ function RacePageContent() {
       if (progressIntervalRef.current) {
         clearInterval(progressIntervalRef.current);
         progressIntervalRef.current = null;
+      }
+      if (graceIntervalRef.current) {
+        clearInterval(graceIntervalRef.current);
+        graceIntervalRef.current = null;
       }
 
       if (data.results) {
@@ -203,22 +245,26 @@ function RacePageContent() {
       socket.off("race-countdown");
       socket.off("race-started");
       socket.off("race-finished");
+      socket.off("first-player-finished");
       socket.off("error");
       socket.off("disconnect");
       socket.off("connect");
+      if (graceIntervalRef.current) {
+        clearInterval(graceIntervalRef.current);
+      }
     };
   }, [socket, roomId, username, showResults, raceStarted]);
 
-  // Timer for race with timeout (5 minutes)
+  // Timer for race with dynamic timeout
   useEffect(() => {
     if (raceStarted && !showResults) {
       timerRef.current = setInterval(() => {
         setTimeElapsed((prev) => {
           const newTime = prev + 0.1;
-          // Race timeout after 5 minutes
-          if (newTime >= 300) {
+          // Race timeout based on configured duration
+          if (newTime >= raceDuration) {
             handleRaceFinish();
-            return 300;
+            return raceDuration;
           }
           return newTime;
         });
@@ -233,7 +279,7 @@ function RacePageContent() {
         clearInterval(timerRef.current);
       }
     };
-  }, [raceStarted, showResults]);
+  }, [raceStarted, showResults, raceDuration]);
 
   // Progress tracking
   useEffect(() => {
@@ -318,6 +364,8 @@ function RacePageContent() {
         body: JSON.stringify({
           hostId: socket.id,
           maxPlayers: maxPlayersInput,
+          timerMode,
+          timerDuration: timerMode === "fixed" ? timerDuration : null,
         }),
       });
 
@@ -328,6 +376,10 @@ function RacePageContent() {
         setRoomCodeInput(newRoomId);
         setIsHost(true);
         setAutoJoined(true);
+        // Set race duration from server response
+        if (data.data.calculatedDuration) {
+          setRaceDuration(data.data.calculatedDuration);
+        }
         // Join room via socket - host automatically joins when creating
         socket.emit("join-room", { roomId: newRoomId, username });
       }
@@ -514,6 +566,51 @@ function RacePageContent() {
                     />
                     <p className="text-white/50 text-xs mt-1">
                       Set how many players can join (2-50)
+                    </p>
+                  </div>
+
+                  {/* Timer Mode Selection */}
+                  <div className="mb-3">
+                    <label className="text-white/70 text-sm mb-2 block">
+                      Race Timer
+                    </label>
+                    <div className="grid grid-cols-2 gap-2 mb-2">
+                      <Button
+                        type="button"
+                        onClick={() => setTimerMode("text-based")}
+                        className={`w-full ${timerMode === "text-based" ? "bg-blue-600 hover:bg-blue-700" : "bg-gray-900/50 border-white/10 hover:bg-gray-800/50"} text-white`}
+                      >
+                        <Clock className="w-4 h-4 mr-1" />
+                        Auto
+                      </Button>
+                      <Button
+                        type="button"
+                        onClick={() => setTimerMode("fixed")}
+                        className={`w-full ${timerMode === "fixed" ? "bg-blue-600 hover:bg-blue-700" : "bg-gray-900/50 border-white/10 hover:bg-gray-800/50"} text-white`}
+                      >
+                        <Timer className="w-4 h-4 mr-1" />
+                        Fixed
+                      </Button>
+                    </div>
+                    {timerMode === "fixed" && (
+                      <div className="grid grid-cols-3 gap-2 mt-2">
+                        {[30, 60, 90, 120, 180].map((seconds) => (
+                          <Button
+                            key={seconds}
+                            type="button"
+                            size="sm"
+                            onClick={() => setTimerDuration(seconds)}
+                            className={`${timerDuration === seconds ? "bg-green-600 hover:bg-green-700" : "bg-gray-900/50 border-white/10 hover:bg-gray-800/50"} text-white text-xs`}
+                          >
+                            {seconds < 60 ? `${seconds}s` : `${seconds / 60}m`}
+                          </Button>
+                        ))}
+                      </div>
+                    )}
+                    <p className="text-white/50 text-xs mt-1">
+                      {timerMode === "text-based"
+                        ? "Timer calculated based on text length (~40 WPM)"
+                        : `Race ends after ${timerDuration} seconds`}
                     </p>
                   </div>
                   <Button
@@ -727,6 +824,9 @@ function RacePageContent() {
                     setAutoJoined(false);
                     setIsHost(false);
                     setCountdown(null);
+                    setGraceCountdown(null);
+                    setFirstFinisher(null);
+                    setRaceDuration(120);
                     hasFinishedRef.current = false; // Reset finished flag for new race
                     // Clear timers
                     if (timerRef.current) {
@@ -736,6 +836,10 @@ function RacePageContent() {
                     if (progressIntervalRef.current) {
                       clearInterval(progressIntervalRef.current);
                       progressIntervalRef.current = null;
+                    }
+                    if (graceIntervalRef.current) {
+                      clearInterval(graceIntervalRef.current);
+                      graceIntervalRef.current = null;
                     }
                   }}
                   className="flex-1 btn-cartoon bg-blue-600 hover:bg-blue-700 text-white border-0"
@@ -806,6 +910,24 @@ function RacePageContent() {
                       <div className="text-2xl font-bold text-white">
                         {timeElapsed.toFixed(1)}s
                       </div>
+                      <div className="text-xs text-white/50">
+                        / {raceDuration}s
+                      </div>
+                      {/* Time progress bar */}
+                      <div className="w-full bg-gray-700/50 rounded-full h-1.5 mt-1">
+                        <div
+                          className={`h-1.5 rounded-full transition-all duration-100 ${
+                            timeElapsed / raceDuration > 0.8
+                              ? "bg-red-500"
+                              : timeElapsed / raceDuration > 0.5
+                                ? "bg-yellow-500"
+                                : "bg-green-500"
+                          }`}
+                          style={{
+                            width: `${Math.min((timeElapsed / raceDuration) * 100, 100)}%`,
+                          }}
+                        />
+                      </div>
                     </div>
                     <div>
                       <div className="text-white/70 text-sm mb-1">WPM</div>
@@ -828,6 +950,34 @@ function RacePageContent() {
                 </CardContent>
               </Card>
             </div>
+
+            {/* Grace Period Warning Banner */}
+            {graceCountdown !== null &&
+              graceCountdown > 0 &&
+              firstFinisher &&
+              firstFinisher.socketId !== socket?.id && (
+                <Card className="bg-yellow-500/20 border-yellow-500 mb-4">
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <AlertCircle className="w-5 h-5 text-yellow-400" />
+                        <span className="text-yellow-300 font-medium">
+                          {firstFinisher.name} finished! Race ends in:
+                        </span>
+                      </div>
+                      <span className="text-2xl font-bold text-yellow-400">
+                        {graceCountdown}s
+                      </span>
+                    </div>
+                    <div className="w-full bg-yellow-900/50 rounded-full h-2 mt-2">
+                      <div
+                        className="bg-yellow-400 h-2 rounded-full transition-all duration-1000"
+                        style={{ width: `${(graceCountdown / 15) * 100}%` }}
+                      />
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
 
             <Card className="bg-white/10 border-white/20 backdrop-blur-sm">
               <CardContent className="p-6">

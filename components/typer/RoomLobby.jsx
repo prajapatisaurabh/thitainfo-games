@@ -5,7 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Users, Copy, Check, Play, Loader2 } from "lucide-react";
+import { Users, Copy, Check, Play, Loader2, Clock } from "lucide-react";
 
 export function RoomLobby({
   roomId,
@@ -23,7 +23,7 @@ export function RoomLobby({
   useEffect(() => {
     if (roomData && roomData.players) {
       const playerExists = roomData.players.some(
-        (p) => p.socketId === socket?.id
+        (p) => p.socketId === socket?.id,
       );
       if (playerExists) {
         setJoined(true);
@@ -131,6 +131,26 @@ export function RoomLobby({
             {roomData?.players?.length || 0} / {roomData?.maxPlayers || 10}
           </Badge>
         </div>
+
+        {/* Timer Settings Display */}
+        {roomData?.calculatedDuration && (
+          <div className="mb-4 p-3 bg-gray-900/50 rounded-lg">
+            <div className="flex items-center gap-2 mb-1">
+              <Clock className="w-4 h-4 text-cyan-400" />
+              <span className="text-white/70 text-sm">Race Timer</span>
+            </div>
+            <div className="text-white font-medium">
+              {roomData.timerMode === "text-based"
+                ? `Auto: ~${Math.round((roomData.calculatedDuration / 60) * 10) / 10} min`
+                : `Fixed: ${roomData.timerDuration || roomData.calculatedDuration}s`}
+            </div>
+            <div className="text-white/50 text-xs mt-1">
+              {roomData.timerMode === "text-based"
+                ? "Based on text length (~40 WPM average)"
+                : "Fixed timer selected by host"}
+            </div>
+          </div>
+        )}
 
         <div className="mb-4">
           <div className="flex items-center gap-2 mb-2">
