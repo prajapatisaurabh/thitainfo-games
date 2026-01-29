@@ -2,7 +2,55 @@
 
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Trophy, Target, AlertCircle, Clock, Zap, Timer } from "lucide-react";
+import {
+  Trophy,
+  Target,
+  AlertCircle,
+  Zap,
+  Timer,
+  TrendingUp,
+  TrendingDown,
+} from "lucide-react";
+
+// Player colors for race visualization
+const PLAYER_COLORS = [
+  {
+    bg: "bg-neon-cyan",
+    border: "border-neon-cyan",
+    text: "text-neon-cyan",
+    glow: "shadow-neon-cyan",
+  },
+  {
+    bg: "bg-neon-magenta",
+    border: "border-neon-magenta",
+    text: "text-neon-magenta",
+    glow: "shadow-neon-magenta",
+  },
+  {
+    bg: "bg-neon-green",
+    border: "border-neon-green",
+    text: "text-neon-green",
+    glow: "shadow-neon-green",
+  },
+  {
+    bg: "bg-neon-orange",
+    border: "border-neon-orange",
+    text: "text-neon-orange",
+    glow: "shadow-neon-orange",
+  },
+  {
+    bg: "bg-neon-purple",
+    border: "border-neon-purple",
+    text: "text-neon-purple",
+    glow: "shadow-neon-purple",
+  },
+  {
+    bg: "bg-neon-pink",
+    border: "border-neon-pink",
+    text: "text-neon-pink",
+    glow: "shadow-neon-pink",
+  },
+];
 
 export function LiveLeaderboard({
   players,
@@ -11,174 +59,216 @@ export function LiveLeaderboard({
 }) {
   // Sort players by: finished status → time (for finished) → progress → wpm → accuracy
   const sortedPlayers = [...(players || [])].sort((a, b) => {
-    // Finished players always come first
     if (a.finished && !b.finished) return -1;
     if (!a.finished && b.finished) return 1;
 
     if (a.finished && b.finished) {
-      // Both finished - sort by time (lower is better)
       const timeA = typeof a.time === "number" ? a.time : Infinity;
       const timeB = typeof b.time === "number" ? b.time : Infinity;
       if (timeA !== timeB) return timeA - timeB;
-      // Same time, sort by WPM (higher is better)
       return (b.wpm || 0) - (a.wpm || 0);
     }
 
-    // Both not finished - sort by progress (higher is better)
     const progressA = a.progress || 0;
     const progressB = b.progress || 0;
     if (progressB !== progressA) {
       return progressB - progressA;
     }
-    // Same progress, sort by WPM (higher is better)
     const wpmA = a.wpm || 0;
     const wpmB = b.wpm || 0;
     if (wpmB !== wpmA) {
       return wpmB - wpmA;
     }
-    // Same WPM, sort by accuracy (higher is better)
     return (b.accuracy || 0) - (a.accuracy || 0);
   });
 
+  const getPlayerColor = (index) => {
+    return PLAYER_COLORS[index % PLAYER_COLORS.length];
+  };
+
+  const getRankStyle = (index) => {
+    if (index === 0) return "rank-gold";
+    if (index === 1) return "rank-silver";
+    if (index === 2) return "rank-bronze";
+    return "bg-cyber-card border border-cyber-border";
+  };
+
   const getRankIcon = (index) => {
-    if (index === 0) return "🥇";
+    if (index === 0) return "👑";
     if (index === 1) return "🥈";
     if (index === 2) return "🥉";
     return `#${index + 1}`;
   };
 
   return (
-    <Card className="bg-white/10 border-white/20 backdrop-blur-sm">
-      <CardContent className="p-6">
-        <h3 className="text-xl font-bold mb-4 text-white flex items-center gap-2">
-          <Trophy className="w-5 h-5 text-yellow-400" />
-          Live Leaderboard
-        </h3>
-        <div className="space-y-3">
-          {sortedPlayers.map((player, index) => {
-            const isCurrentPlayer = player.socketId === currentPlayerId;
-            return (
-              <div
-                key={index}
-                className={`p-4 rounded-lg transition-all ${
-                  isCurrentPlayer
-                    ? "bg-blue-500/20 border-2 border-blue-500"
-                    : "bg-gray-900/50 border border-white/10"
-                }`}
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-3">
-                    <span className="text-2xl font-bold text-white min-w-[40px]">
-                      {getRankIcon(index)}
-                    </span>
+    <div className="cyber-card p-6">
+      <h3 className="text-xl font-bold mb-4 text-white flex items-center gap-2 font-gaming">
+        <Trophy className="w-5 h-5 text-neon-cyan" />
+        <span className="text-glow-cyan">LEADERBOARD</span>
+      </h3>
+      <div className="space-y-3">
+        {sortedPlayers.map((player, index) => {
+          const isCurrentPlayer = player.socketId === currentPlayerId;
+          const playerColor = getPlayerColor(index);
+          const isLeader = index === 0 && !isRaceFinished;
+
+          return (
+            <div
+              key={player.socketId || index}
+              className={`relative p-4 rounded-lg transition-all duration-300 ${
+                isCurrentPlayer ? "cyber-card-highlight" : "cyber-card"
+              } ${isLeader && !player.finished ? "animate-pulse-glow" : ""}`}
+              style={isLeader ? { "--glow-color": "#00f0ff" } : {}}
+            >
+              {/* Leader indicator */}
+              {isLeader && !isRaceFinished && (
+                <div className="absolute -top-2 -right-2 bg-neon-cyan text-cyber-dark text-xs font-bold px-2 py-1 rounded-full animate-bounce-gentle">
+                  LEADING
+                </div>
+              )}
+
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-3">
+                  {/* Rank badge */}
+                  <div
+                    className={`w-10 h-10 rounded-lg flex items-center justify-center font-bold text-lg ${getRankStyle(index)}`}
+                  >
+                    {index < 3 ? (
+                      getRankIcon(index)
+                    ) : (
+                      <span className="text-white/70">#{index + 1}</span>
+                    )}
+                  </div>
+
+                  {/* Player color indicator */}
+                  <div
+                    className={`w-3 h-8 rounded-full ${playerColor.bg} opacity-80`}
+                  />
+
+                  {/* Player name */}
+                  <div className="flex flex-col">
                     <span
-                      className={`font-bold ${
-                        isCurrentPlayer ? "text-blue-300" : "text-white"
-                      }`}
+                      className={`font-bold text-lg ${isCurrentPlayer ? "text-neon-cyan text-glow-cyan" : "text-white"}`}
                     >
                       {player.username}
                     </span>
-                    {isCurrentPlayer && (
-                      <Badge className="bg-blue-500/20 text-blue-300 border-blue-500/30 text-xs">
-                        You
-                      </Badge>
-                    )}
-                    {player.finished && (
-                      <Badge className="bg-green-500/20 text-green-300 border-green-500/30 text-xs">
-                        Finished
-                      </Badge>
-                    )}
+                    <div className="flex gap-2 mt-1">
+                      {isCurrentPlayer && (
+                        <Badge className="bg-neon-cyan/20 text-neon-cyan border-neon-cyan/30 text-xs">
+                          YOU
+                        </Badge>
+                      )}
+                      {player.finished && (
+                        <Badge className="bg-neon-green/20 text-neon-green border-neon-green/30 text-xs glow-green">
+                          ✓ FINISHED
+                        </Badge>
+                      )}
+                    </div>
                   </div>
                 </div>
-                <div
-                  className={`grid ${
-                    isRaceFinished
-                      ? "grid-cols-2 md:grid-cols-5"
-                      : "grid-cols-4"
-                  } gap-2 text-sm`}
-                >
-                  {/* Show progress during race, or final progress when finished */}
-                  {!isRaceFinished && (
-                    <div className="flex items-center gap-1">
-                      <Target className="w-4 h-4 text-green-400" />
-                      <span className="text-white/70">Progress:</span>
-                      <span className="text-white font-bold">
-                        {Math.round(player.progress || 0)}%
-                      </span>
-                    </div>
-                  )}
-                  {isRaceFinished && (
-                    <div className="flex items-center gap-1">
-                      <Target className="w-4 h-4 text-green-400" />
-                      <span className="text-white/70">Progress:</span>
-                      <span className="text-white font-bold">
-                        {player.finished
-                          ? "100%"
-                          : `${Math.round(player.progress || 0)}%`}
-                      </span>
-                    </div>
-                  )}
-                  <div className="flex items-center gap-1">
-                    <Zap className="w-4 h-4 text-blue-400" />
-                    <span className="text-white/70">WPM:</span>
-                    <span className="text-white font-bold text-lg">
-                      {player.wpm || 0}
-                    </span>
+
+                {/* WPM display - prominent */}
+                <div className="text-right">
+                  <div className="font-gaming text-3xl font-bold text-neon-cyan text-glow-cyan">
+                    {player.wpm || 0}
                   </div>
-                  <div className="flex items-center gap-1">
-                    <Trophy className="w-4 h-4 text-yellow-400" />
-                    <span className="text-white/70">Accuracy:</span>
-                    <span className="text-white font-bold">
+                  <div className="text-xs text-white/50 uppercase tracking-wider">
+                    WPM
+                  </div>
+                </div>
+              </div>
+
+              {/* Stats row */}
+              <div className="grid grid-cols-3 gap-3 text-sm mb-3">
+                <div className="stat-card p-2">
+                  <div className="flex items-center justify-center gap-1 text-neon-green">
+                    <Target className="w-3 h-3" />
+                    <span className="font-gaming text-lg">
                       {player.accuracy !== undefined ? player.accuracy : 100}%
                     </span>
                   </div>
-                  <div className="flex items-center gap-1">
-                    <AlertCircle className="w-4 h-4 text-red-400" />
-                    <span className="text-white/70">Errors:</span>
-                    <span className="text-white font-bold">
+                  <div className="text-xs text-white/40 text-center">
+                    Accuracy
+                  </div>
+                </div>
+                <div className="stat-card p-2">
+                  <div className="flex items-center justify-center gap-1 text-neon-magenta">
+                    <AlertCircle className="w-3 h-3" />
+                    <span className="font-gaming text-lg">
                       {player.errors || 0}
                     </span>
                   </div>
-                  {isRaceFinished && (
-                    <div className="flex items-center gap-1">
-                      <Timer className="w-4 h-4 text-cyan-400" />
-                      <span className="text-white/70">Time:</span>
-                      <span className="text-cyan-300 font-bold">
-                        {player.finished && player.time
-                          ? `${
-                              typeof player.time === "number"
-                                ? player.time.toFixed(1)
-                                : player.time
-                            }s`
-                          : "DNF"}
-                      </span>
-                    </div>
-                  )}
+                  <div className="text-xs text-white/40 text-center">
+                    Errors
+                  </div>
                 </div>
-                {!player.finished && !isRaceFinished && (
-                  <div className="mt-2">
-                    <div className="w-full bg-gray-700/50 rounded-full h-2">
-                      <div
-                        className="bg-gradient-to-r from-blue-500 to-cyan-500 h-2 rounded-full transition-all duration-300"
-                        style={{
-                          width: `${Math.min(player.progress || 0, 100)}%`,
-                        }}
-                      ></div>
-                    </div>
+                <div className="stat-card p-2">
+                  <div className="flex items-center justify-center gap-1 text-neon-orange">
+                    <Timer className="w-3 h-3" />
+                    <span className="font-gaming text-lg">
+                      {player.finished && player.time
+                        ? `${typeof player.time === "number" ? player.time.toFixed(1) : player.time}s`
+                        : isRaceFinished
+                          ? "DNF"
+                          : "--"}
+                    </span>
                   </div>
-                )}
-                {isRaceFinished && !player.finished && (
-                  <div className="mt-2 text-center">
-                    <Badge className="bg-red-500/20 text-red-300 border-red-500/30">
-                      Did Not Finish
-                    </Badge>
-                  </div>
-                )}
+                  <div className="text-xs text-white/40 text-center">Time</div>
+                </div>
               </div>
-            );
-          })}
-        </div>
-      </CardContent>
-    </Card>
+
+              {/* Progress bar */}
+              {!isRaceFinished && (
+                <div className="relative">
+                  <div className="flex justify-between text-xs mb-1">
+                    <span className="text-white/50">Progress</span>
+                    <span className="text-neon-cyan font-bold">
+                      {Math.round(player.progress || 0)}%
+                    </span>
+                  </div>
+                  <div className="progress-neon">
+                    <div
+                      className="progress-neon-fill"
+                      style={{
+                        width: `${Math.min(player.progress || 0, 100)}%`,
+                        background: `linear-gradient(90deg, ${
+                          playerColor.bg === "bg-neon-cyan"
+                            ? "#00f0ff"
+                            : playerColor.bg === "bg-neon-magenta"
+                              ? "#ff00aa"
+                              : playerColor.bg === "bg-neon-green"
+                                ? "#00ff88"
+                                : playerColor.bg === "bg-neon-orange"
+                                  ? "#ff6b00"
+                                  : playerColor.bg === "bg-neon-purple"
+                                    ? "#bf00ff"
+                                    : "#ff0080"
+                        }, #00ff88)`,
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* DNF indicator for finished race */}
+              {isRaceFinished && !player.finished && (
+                <div className="mt-2 text-center">
+                  <Badge className="bg-neon-magenta/20 text-neon-magenta border-neon-magenta/30 px-4">
+                    DID NOT FINISH - {Math.round(player.progress || 0)}%
+                  </Badge>
+                </div>
+              )}
+            </div>
+          );
+        })}
+
+        {(!players || players.length === 0) && (
+          <div className="text-center text-white/50 py-8">
+            <Trophy className="w-12 h-12 mx-auto mb-2 opacity-30" />
+            <p>Waiting for players...</p>
+          </div>
+        )}
+      </div>
+    </div>
   );
 }

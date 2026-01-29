@@ -32,6 +32,7 @@ export default function TyperPage() {
   const [resultData, setResultData] = useState(null);
   const inputRef = useRef(null);
   const timerRef = useRef(null);
+  const timeElapsedRef = useRef(0); // Track current time to avoid stale closures
 
   // Initialize with random text
   useEffect(() => {
@@ -42,7 +43,11 @@ export default function TyperPage() {
   useEffect(() => {
     if (isStarted && !isFinished) {
       timerRef.current = setInterval(() => {
-        setTimeElapsed((prev) => prev + 0.1);
+        setTimeElapsed((prev) => {
+          const newTime = prev + 0.1;
+          timeElapsedRef.current = newTime; // Keep ref in sync
+          return newTime;
+        });
       }, 100);
     } else {
       if (timerRef.current) {
@@ -102,15 +107,18 @@ export default function TyperPage() {
   }, [userInput, text, isStarted, isFinished]);
 
   const calculateFinalResults = async () => {
-    const timeInMinutes = timeElapsed / 60;
+    // Use ref to get the most current time value (avoids stale closure)
+    const currentTime = timeElapsedRef.current || timeElapsed;
+    const timeInMinutes = currentTime / 60;
     // Standard WPM calculation: (characters / 5) / minutes
+    // Ensure we have a valid time to avoid 0 WPM
     const finalWpm =
       timeInMinutes > 0 ? Math.round(text.length / 5 / timeInMinutes) : 0;
 
     const result = {
       wpm: finalWpm,
       accuracy: accuracy,
-      time: parseFloat(timeElapsed.toFixed(1)),
+      time: parseFloat(currentTime.toFixed(1)),
       errors: errors,
       date: new Date().toISOString(),
     };
@@ -157,6 +165,7 @@ export default function TyperPage() {
     setIsStarted(false);
     setIsFinished(false);
     setTimeElapsed(0);
+    timeElapsedRef.current = 0; // Reset the ref too
     setWpm(0);
     setAccuracy(100);
     setErrors(0);
