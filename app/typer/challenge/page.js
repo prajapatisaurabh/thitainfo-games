@@ -32,9 +32,9 @@ function ChallengePageContent() {
     if (!socket) return;
 
     socket.on("challenge-accepted", (data) => {
-      // Redirect to race page with the challenge room
+      // Redirect to race page with the full challenge room ID and username
       router.push(
-        `/typer/race?code=${data.roomId.replace("challenge_", "")}`
+        `/typer/race?code=${data.roomId}&username=${encodeURIComponent(username)}&challenge=true`
       );
     });
 
@@ -47,7 +47,7 @@ function ChallengePageContent() {
       socket.off("challenge-accepted");
       socket.off("error");
     };
-  }, [socket, router]);
+  }, [socket, router, username]);
 
   const loadChallenge = async (id) => {
     setLoading(true);

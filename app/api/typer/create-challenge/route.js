@@ -28,9 +28,12 @@ export async function POST(request) {
 
     // Generate challenge ID and link
     const challengeId = generateChallengeId();
-    const challengeLink = `${
-      process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"
-    }/typer/challenge/${challengeId}`;
+
+    // Get base URL from request headers or env variable
+    const host = request.headers.get("host");
+    const protocol = request.headers.get("x-forwarded-proto") || (host?.includes("localhost") ? "http" : "https");
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || `${protocol}://${host}`;
+    const challengeLink = `${baseUrl}/typer/challenge/${challengeId}`;
 
     // Create challenge
     const challenge = {

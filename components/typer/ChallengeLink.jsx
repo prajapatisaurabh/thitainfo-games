@@ -9,10 +9,28 @@ import { Copy, Check, Share2 } from "lucide-react";
 export function ChallengeLink({ challengeLink, challengerName }) {
   const [copied, setCopied] = useState(false);
 
-  const copyLink = () => {
-    navigator.clipboard.writeText(challengeLink);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+  const copyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(challengeLink);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (error) {
+      // Fallback for older browsers or non-secure contexts
+      const textArea = document.createElement("textarea");
+      textArea.value = challengeLink;
+      textArea.style.position = "fixed";
+      textArea.style.left = "-999999px";
+      document.body.appendChild(textArea);
+      textArea.select();
+      try {
+        document.execCommand("copy");
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      } catch (err) {
+        console.error("Failed to copy:", err);
+      }
+      document.body.removeChild(textArea);
+    }
   };
 
   const shareLink = async () => {
@@ -32,9 +50,9 @@ export function ChallengeLink({ challengeLink, challengerName }) {
   };
 
   return (
-    <Card className="bg-white/10 border-white/20 backdrop-blur-sm">
+    <Card className="bg-cyber-card border-cyber-border backdrop-blur-sm shadow-neon-cyan">
       <CardContent className="p-6">
-        <h3 className="text-xl font-bold mb-4 text-white">
+        <h3 className="text-xl font-bold mb-4 text-neon-cyan">
           Challenge Created!
         </h3>
         <p className="text-white/70 mb-4">
@@ -44,12 +62,14 @@ export function ChallengeLink({ challengeLink, challengerName }) {
           <Input
             value={challengeLink}
             readOnly
-            className="bg-gray-900/50 border-white/10 text-white"
+            className="bg-cyber-dark border-cyber-border text-white focus:border-neon-cyan"
           />
           <Button
             onClick={copyLink}
             variant="outline"
-            className="bg-gray-900/50 border-white/10 text-white hover:bg-gray-800/50"
+            className={`border-cyber-border text-white hover:bg-neon-cyan/20 hover:border-neon-cyan ${
+              copied ? "bg-neon-green/20 border-neon-green text-neon-green" : "bg-cyber-dark"
+            }`}
           >
             {copied ? (
               <>
@@ -66,7 +86,7 @@ export function ChallengeLink({ challengeLink, challengerName }) {
         </div>
         <Button
           onClick={shareLink}
-          className="w-full btn-cartoon bg-blue-600 hover:bg-blue-700 text-white border-0"
+          className="w-full bg-neon-orange hover:bg-neon-orange/80 text-white border-0 shadow-neon-orange"
         >
           <Share2 className="w-4 h-4 mr-2" />
           Share Challenge
@@ -75,4 +95,3 @@ export function ChallengeLink({ challengeLink, challengerName }) {
     </Card>
   );
 }
-

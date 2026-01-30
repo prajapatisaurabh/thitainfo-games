@@ -56,13 +56,47 @@ function RacePageContent() {
   const userInputRef = useRef(""); // Track current input to avoid stale closures
   const roomDataRef = useRef(null); // Track current room data to avoid stale closures
 
-  // Check if joining via room code from URL
+  // Check if joining via room code from URL (including challenge mode)
   useEffect(() => {
     const code = searchParams.get("code");
+    const urlUsername = searchParams.get("username");
+    const isChallenge = searchParams.get("challenge") === "true";
+
     if (code) {
       setRoomCodeInput(code);
     }
-  }, [searchParams]);
+    if (urlUsername) {
+      setUsername(decodeURIComponent(urlUsername));
+    }
+
+    // Auto-join if coming from challenge with username
+    if (code && urlUsername && isChallenge && socket && isConnected && !roomId && !autoJoined) {
+      const decodedUsername = decodeURIComponent(urlUsername);
+      setAutoJoined(true);
+
+      // Join the challenge room directly
+      fetch("/api/typer/join-room", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ roomId: code }),
+      })
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.success) {
+            setRoomId(code);
+            socket.emit("join-room", { roomId: code, username: decodedUsername });
+          } else {
+            alert(data.message || "Error joining challenge room");
+            setAutoJoined(false);
+          }
+        })
+        .catch((error) => {
+          console.error("Error joining challenge room:", error);
+          alert("Error joining challenge room");
+          setAutoJoined(false);
+        });
+    }
+  }, [searchParams, socket, isConnected, roomId, autoJoined]);
 
   // Socket event listeners
   useEffect(() => {
@@ -515,6 +549,20 @@ function RacePageContent() {
         <div className="container mx-auto px-4 py-24 text-center">
           <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4" />
           <p>Connecting to server...</p>
+        </div>
+        <Footer />
+      </div>
+    );
+  }
+
+  // Show loading when auto-joining from challenge
+  if (autoJoined && (!roomId || !roomData)) {
+    return (
+      <div className="min-h-screen gradient-cyber text-white">
+        <Navbar />
+        <div className="container mx-auto px-4 py-24 text-center">
+          <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4" />
+          <p>Joining challenge room...</p>
         </div>
         <Footer />
       </div>
