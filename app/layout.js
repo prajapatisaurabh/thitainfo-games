@@ -15,7 +15,7 @@ export default function RootLayout({ children }) {
         <Script
           defer
           src="https://analytics.saurabhprajapati.in/script.js"
-          data-website-id="8673d052-6bd3-4560-8558-844935a92e48"
+          data-website-id="770d3ab4-70ac-4c4f-83cc-fa5367c1b422"
           strategy="afterInteractive"
         />
       </head>
