@@ -18,6 +18,23 @@ export class ErrorBoundary extends Component {
 
   componentDidCatch(error, errorInfo) {
     console.error("Error caught by boundary:", error, errorInfo);
+
+    // Report to server-side error log (replace with Sentry etc. as needed)
+    try {
+      fetch("/api/errors", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: error.message,
+          stack: error.stack,
+          componentStack: errorInfo?.componentStack,
+          url: typeof window !== "undefined" ? window.location.href : "",
+          timestamp: new Date().toISOString(),
+        }),
+      }).catch(() => {}); // swallow network errors — reporting must never crash the app
+    } catch {
+      // noop
+    }
   }
 
   handleReset = () => {

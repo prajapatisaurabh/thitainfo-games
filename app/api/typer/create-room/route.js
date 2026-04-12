@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getDB } from "@/lib/db";
 import { getRandomText, calculateTimerFromText } from "@/lib/constants";
+import { rateLimit } from "@/lib/rate-limit";
 
 // Generate random room code
 function generateRoomCode() {
@@ -13,6 +14,9 @@ function generateRoomCode() {
 }
 
 export async function POST(request) {
+  const limited = rateLimit(request, { limit: 10, windowMs: 60_000 });
+  if (limited) return limited;
+
   try {
     const body = await request.json();
     const {
@@ -23,9 +27,50 @@ export async function POST(request) {
       timerDuration = 120,
     } = body;
 
-    if (!hostId) {
+    if (!hostId || typeof hostId !== "string" || hostId.length > 100) {
       return NextResponse.json(
         { success: false, message: "Host ID is required" },
+        { status: 400 },
+      );
+    }
+
+    const parsedMaxPlayers = parseInt(maxPlayers);
+    if (
+      isNaN(parsedMaxPlayers) ||
+      parsedMaxPlayers < 2 ||
+      parsedMaxPlayers > 20
+    ) {
+      return NextResponse.json(
+        { success: false, message: "maxPlayers must be between 2 and 20" },
+        { status: 400 },
+      );
+    }
+
+    const validTimerModes = ["text-based", "fixed"];
+    if (!validTimerModes.includes(timerMode)) {
+      return NextResponse.json(
+        { success: false, message: "Invalid timerMode" },
+        { status: 400 },
+      );
+    }
+
+    const parsedDuration = parseInt(timerDuration);
+    if (isNaN(parsedDuration) || parsedDuration < 30 || parsedDuration > 3600) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "timerDuration must be between 30 and 3600 seconds",
+        },
+        { status: 400 },
+      );
+    }
+
+    if (
+      text !== undefined &&
+      (typeof text !== "string" || text.length > 2000)
+    ) {
+      return NextResponse.json(
+        { success: false, message: "Invalid text" },
         { status: 400 },
       );
     }
@@ -52,7 +97,7 @@ export async function POST(request) {
     const calculatedDuration =
       timerMode === "text-based"
         ? calculateTimerFromText(selectedText)
-        : parseInt(timerDuration) || 120;
+        : parsedDuration;
 
     // Create room
     const room = {
@@ -62,9 +107,9 @@ export async function POST(request) {
       text: selectedText,
       status: "waiting",
       createdAt: new Date(),
-      maxPlayers: parseInt(maxPlayers) || 10,
+      maxPlayers: parsedMaxPlayers,
       timerMode,
-      timerDuration: timerMode === "fixed" ? parseInt(timerDuration) : null,
+      timerDuration: timerMode === "fixed" ? parsedDuration : null,
       calculatedDuration,
       graceEndTime: null,
       firstFinisherId: null,
@@ -90,7 +135,6 @@ export async function POST(request) {
       {
         success: false,
         message: "Error creating room",
-        error: error.message,
       },
       { status: 500 },
     );

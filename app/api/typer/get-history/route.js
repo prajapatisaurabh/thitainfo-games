@@ -7,7 +7,9 @@ export const dynamic = "force-dynamic";
 export async function GET(request) {
   try {
     const searchParams = request.nextUrl.searchParams;
-    const limit = parseInt(searchParams.get("limit") || "10");
+    const rawLimit = parseInt(searchParams.get("limit") || "10");
+    const limit =
+      isNaN(rawLimit) || rawLimit < 1 ? 10 : Math.min(rawLimit, 100);
 
     // Connect to database
     const database = await getDB();
@@ -31,7 +33,6 @@ export async function GET(request) {
       {
         success: false,
         message: "Error fetching history",
-        error: error.message,
       },
       { status: 500 },
     );

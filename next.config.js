@@ -20,21 +20,39 @@ const nextConfig = {
     pagesBufferLength: 2,
   },
   async headers() {
+    const allowedOrigin = process.env.CORS_ORIGINS?.split(",")[0] || "";
     return [
       {
         source: "/(.*)",
         headers: [
-          { key: "X-Frame-Options", value: "ALLOWALL" },
-          { key: "Content-Security-Policy", value: "frame-ancestors *;" },
+          { key: "X-Frame-Options", value: "SAMEORIGIN" },
+          {
+            key: "Content-Security-Policy",
+            value: `frame-ancestors 'self' ${allowedOrigin}`,
+          },
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+          {
+            key: "Permissions-Policy",
+            value: "camera=(), microphone=(), geolocation=()",
+          },
+        ],
+      },
+      {
+        source: "/api/(.*)",
+        headers: [
           {
             key: "Access-Control-Allow-Origin",
-            value: process.env.CORS_ORIGINS || "*",
+            value: process.env.CORS_ORIGINS || "",
           },
           {
             key: "Access-Control-Allow-Methods",
-            value: "GET, POST, PUT, DELETE, OPTIONS",
+            value: "GET, POST, OPTIONS",
           },
-          { key: "Access-Control-Allow-Headers", value: "*" },
+          {
+            key: "Access-Control-Allow-Headers",
+            value: "Content-Type, Authorization",
+          },
         ],
       },
     ];

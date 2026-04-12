@@ -6,11 +6,45 @@ export async function POST(request) {
     const body = await request.json();
     const { roomId, players, challengeId } = body;
 
-    if (!roomId || !players || !Array.isArray(players)) {
+    if (
+      !roomId ||
+      typeof roomId !== "string" ||
+      !/^[A-Z0-9]{6}$/.test(roomId)
+    ) {
       return NextResponse.json(
-        { success: false, message: "Room ID and players data are required" },
+        { success: false, message: "Invalid Room ID" },
         { status: 400 },
       );
+    }
+
+    if (
+      !Array.isArray(players) ||
+      players.length === 0 ||
+      players.length > 20
+    ) {
+      return NextResponse.json(
+        { success: false, message: "Invalid players data" },
+        { status: 400 },
+      );
+    }
+
+    for (const p of players) {
+      if (
+        typeof p.username !== "string" ||
+        p.username.length === 0 ||
+        p.username.length > 50 ||
+        (p.wpm !== undefined &&
+          (typeof p.wpm !== "number" || p.wpm < 0 || p.wpm > 500)) ||
+        (p.accuracy !== undefined &&
+          (typeof p.accuracy !== "number" ||
+            p.accuracy < 0 ||
+            p.accuracy > 100))
+      ) {
+        return NextResponse.json(
+          { success: false, message: "Invalid player data" },
+          { status: 400 },
+        );
+      }
     }
 
     // Connect to database
@@ -68,7 +102,6 @@ export async function POST(request) {
       {
         success: false,
         message: "Error saving race result",
-        error: error.message,
       },
       { status: 500 },
     );

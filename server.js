@@ -35,10 +35,21 @@ app.prepare().then(() => {
   });
 
   // Handle graceful shutdown
-  const shutdown = () => {
+  const shutdown = async () => {
     console.log("[Server] Shutting down gracefully...");
-    httpServer.close(() => {
+
+    // Close Socket.IO connections
+    io.close(() => console.log("[Server] Socket.IO closed"));
+
+    // Close HTTP server
+    httpServer.close(async () => {
       console.log("[Server] HTTP server closed");
+      try {
+        const { closeDB } = await import("./lib/db.js");
+        await closeDB();
+      } catch {
+        // DB may not have been connected yet
+      }
       process.exit(0);
     });
 
@@ -54,6 +65,8 @@ app.prepare().then(() => {
 
   httpServer.listen(port, hostname, () => {
     console.log(`[Server] ✓ Ready on http://${hostname}:${port}`);
-    console.log(`[Server] ✓ Socket.IO available at ws://${hostname}:${port}/api/socket.io`);
+    console.log(
+      `[Server] ✓ Socket.IO available at ws://${hostname}:${port}/api/socket.io`,
+    );
   });
 });

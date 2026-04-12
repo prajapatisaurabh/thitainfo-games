@@ -6,9 +6,13 @@ export async function POST(request) {
     const body = await request.json();
     const { roomId } = body;
 
-    if (!roomId) {
+    if (
+      !roomId ||
+      typeof roomId !== "string" ||
+      !/^[A-Z0-9]{6}$/.test(roomId)
+    ) {
       return NextResponse.json(
-        { success: false, message: "Room ID is required" },
+        { success: false, message: "Invalid Room ID" },
         { status: 400 },
       );
     }
@@ -59,7 +63,6 @@ export async function POST(request) {
       {
         success: false,
         message: "Error joining room",
-        error: error.message,
       },
       { status: 500 },
     );

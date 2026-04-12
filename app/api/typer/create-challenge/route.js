@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getDB } from "@/lib/db";
 import { getRandomText } from "@/lib/constants";
+import { rateLimit } from "@/lib/rate-limit";
 
 // Generate unique challenge ID
 function generateChallengeId() {
@@ -8,13 +9,42 @@ function generateChallengeId() {
 }
 
 export async function POST(request) {
+  const limited = rateLimit(request, { limit: 10, windowMs: 60_000 });
+  if (limited) return limited;
+
   try {
     const body = await request.json();
     const { challengerId, challengerName, text } = body;
 
-    if (!challengerId || !challengerName) {
+    if (
+      !challengerId ||
+      typeof challengerId !== "string" ||
+      challengerId.length > 100
+    ) {
       return NextResponse.json(
-        { success: false, message: "Challenger ID and name are required" },
+        { success: false, message: "Challenger ID is required" },
+        { status: 400 },
+      );
+    }
+
+    if (
+      !challengerName ||
+      typeof challengerName !== "string" ||
+      challengerName.trim().length === 0 ||
+      challengerName.length > 50
+    ) {
+      return NextResponse.json(
+        { success: false, message: "Challenger name must be 1-50 characters" },
+        { status: 400 },
+      );
+    }
+
+    if (
+      text !== undefined &&
+      (typeof text !== "string" || text.length > 2000)
+    ) {
+      return NextResponse.json(
+        { success: false, message: "Invalid text" },
         { status: 400 },
       );
     }
@@ -31,7 +61,9 @@ export async function POST(request) {
 
     // Get base URL from request headers or env variable
     const host = request.headers.get("host");
-    const protocol = request.headers.get("x-forwarded-proto") || (host?.includes("localhost") ? "http" : "https");
+    const protocol =
+      request.headers.get("x-forwarded-proto") ||
+      (host?.includes("localhost") ? "http" : "https");
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || `${protocol}://${host}`;
     const challengeLink = `${baseUrl}/typer/challenge/${challengeId}`;
 
@@ -64,7 +96,6 @@ export async function POST(request) {
       {
         success: false,
         message: "Error creating challenge",
-        error: error.message,
       },
       { status: 500 },
     );

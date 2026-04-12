@@ -6,9 +6,13 @@ export async function POST(request) {
     const body = await request.json();
     const { challengeId } = body;
 
-    if (!challengeId) {
+    if (
+      !challengeId ||
+      typeof challengeId !== "string" ||
+      !/^challenge_\d+_[a-z0-9]+$/.test(challengeId)
+    ) {
       return NextResponse.json(
-        { success: false, message: "Challenge ID is required" },
+        { success: false, message: "Invalid challenge ID" },
         { status: 400 },
       );
     }
@@ -58,7 +62,6 @@ export async function POST(request) {
       {
         success: false,
         message: "Error accepting challenge",
-        error: error.message,
       },
       { status: 500 },
     );
