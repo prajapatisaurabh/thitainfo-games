@@ -2,6 +2,7 @@ const { createServer } = require("http");
 const { parse } = require("url");
 const next = require("next");
 const { initializeSocketIO } = require("./lib/socket/server");
+const { closeDB } = require("./lib/db");
 
 const dev = process.env.NODE_ENV !== "production";
 const hostname = process.env.HOSTNAME || "0.0.0.0";
@@ -45,7 +46,6 @@ app.prepare().then(() => {
     httpServer.close(async () => {
       console.log("[Server] HTTP server closed");
       try {
-        const { closeDB } = await import("./lib/db.js");
         await closeDB();
       } catch {
         // DB may not have been connected yet
